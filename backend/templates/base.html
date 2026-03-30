@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skaolink — {% block title %}Tableau de bord{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --ink: #111;
+  --bg: #fff;
+  --muted: #aaa;
+  --border: #efefef;
+  --soft: #f7f7f7;
+}
+
+body {
+  font-family: 'Geist', 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 220px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  border-right: 1px solid var(--border);
+  padding: 36px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  flex-shrink: 0;
+  opacity: 0;
+  animation: fadeIn .5s ease .1s forwards;
+  overflow-y: auto;
+}
+
+.brand {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+}
+
+.brand img { width: 20px; height: 20px; margin-right: 8px; }
+.brand span { color: var(--muted); font-weight: 300; }
+
+nav { display: flex; flex-direction: column; gap: 4px; }
+
+.nav-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  margin-top: 16px;
+}
+
+.nav-label:first-child { margin-top: 0; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  text-decoration: none;
+  border: none;
+  background: none;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item svg {
+  width: 14px; height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.nav-item:hover { background: var(--soft); color: var(--ink); }
+.nav-item.active { background: var(--ink); color: #fff; }
+
+.sidebar-footer {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  margin-left: -6px;
+}
+
+.user-profile:hover { background: var(--soft); }
+
+.avatar-sidebar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.user-details { display: flex; flex-direction: column; }
+.user-details strong { display: block; font-size: 12px; color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+.user-details span { font-size: 11px; color: var(--muted); }
+
+/* ── Main ── */
+.main { flex: 1; padding: 36px 40px; overflow-y: auto; }
+
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 36px;
+  opacity: 0;
+  animation: up .5s cubic-bezier(.16,1,.3,1) .15s forwards;
+}
+
+.topbar h1 { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
+.topbar p { font-size: 13px; color: var(--muted); font-weight: 300; margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+
+/* ── Clochette notif ── */
+.notif-bell {
+  position: relative;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  text-decoration: none;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.notif-bell:hover { border-color: #ccc; color: var(--ink); background: var(--soft); }
+
+.notif-bell svg {
+  width: 15px; height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notif-badge {
+  display: none;
+  position: absolute;
+  top: -5px; right: -5px;
+  background: #111;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 500;
+  min-width: 16px; height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+}
+
+.notif-badge.visible { display: flex; }
+
+/* ── Badge / Pill ── */
+.badge {
+  font-size: 11px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+
+.badge:hover { border-color: var(--ink); color: var(--ink); }
+
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ── Cards ── */
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 24px; transition: border-color .2s; }
+.card:hover { border-color: #ccc; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+.card-title { font-size: 13px; font-weight: 500; letter-spacing: -0.01em; }
+.card-meta { font-size: 11px; color: var(--muted); }
+
+/* ── Pill ── */
+.pill { display: inline-block; font-size: 10px; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); }
+.pill.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  body { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--border); padding: 24px 16px; gap: 24px; opacity: 1; animation: none; }
+  .brand { text-align: center; }
+  nav { gap: 2px; }
+  .nav-label { margin-top: 12px; text-align: center; }
+  .nav-item { justify-content: center; }
+  .sidebar-footer { padding-top: 16px; margin-top: 0; }
+  .user-profile { justify-content: center; margin-left: 0; }
+  .main { padding: 24px 16px; }
+  .topbar { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+  .topbar h1 { font-size: 18px; }
+  .topbar-right { width: 100%; justify-content: space-between; }
+}
+
+/* ── Animations ── */
+@keyframes up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { to { opacity: 1; } }
+@keyframes bellShake {
+  0%,100% { transform: rotate(0); }
+  20% { transform: rotate(-15deg); }
+  40% { transform: rotate(15deg); }
+  60% { transform: rotate(-10deg); }
+  80% { transform: rotate(10deg); }
+}
+.bell-shake { animation: bellShake .5s ease; }
+</style>
+{% block extra_css %}{% endblock %}
+
+<script>
+    if (localStorage.getItem('theme') === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+    }
+</script>
+<style>
+    /* 1. Variables globales réparées */
+    html.dark-mode {
+        --ink: #f5f5f5 !important;
+        --bg: #121212 !important;
+        --muted: #a0a0a0 !important;
+        --border: #333333 !important;
+        --soft: #1e1e1e !important;
+        --bg-card: #1e1e1e !important; /* Pour la carte des paramètres */
+    }
+
+    /* 2. Forcer le fond sur les gros éléments */
+    html.dark-mode body,
+    html.dark-mode .main,
+    html.dark-mode .card,
+    html.dark-mode table,
+    html.dark-mode th,
+    html.dark-mode td {
+        background-color: var(--bg) !important;
+        color: var(--ink) !important;
+    }
+
+    /* 3. LE HACK MAGIQUE : Inverser tous les fonds clairs écrits "en dur" (inline styles) */
+    html.dark-mode [style*="background: white"],
+    html.dark-mode [style*="background: #fff"],
+    html.dark-mode [style*="background-color: white"],
+    html.dark-mode [style*="background-color: #fff"],
+    html.dark-mode [style*="background: #e8f0fe"],
+    html.dark-mode [style*="background: #fdfdfd"],
+    html.dark-mode [style*="background: #fcfcfc"],
+    html.dark-mode [style*="background: #f8f9fa"] {
+        background-color: var(--soft) !important;
+        color: var(--ink) !important;
+        border-color: var(--border) !important;
+    }
+
+    /* 4. Boutons, pilules (Notes) et boutons FullCalendar */
+    html.dark-mode button, 
+    html.dark-mode .btn,
+    html.dark-mode .pill,
+    html.dark-mode .badge,
+    html.dark-mode .fc-button {
+        background-color: var(--soft) !important;
+        color: var(--ink) !important;
+        border-color: var(--border) !important;
+    }
+    
+    /* Protéger les boutons d'action (vert/rouge) */
+    html.dark-mode .btn-success, html.dark-mode #btn-accepter { background-color: #1e8e3e !important; color: white !important; }
+    html.dark-mode .btn-danger, html.dark-mode #btn-refuser { background-color: #dc3545 !important; color: white !important; }
+
+    /* 5. Messagerie */
+    html.dark-mode .chat-container, 
+    html.dark-mode .chat-sidebar, 
+    html.dark-mode .chat-main, 
+    html.dark-mode .sidebar-header,
+    html.dark-mode .chat-input-area,
+    html.dark-mode .modal-content,
+    html.dark-mode #message-window {
+        background-color: var(--bg) !important;
+        border-color: var(--border) !important;
+    }
+    html.dark-mode .message.received { background-color: var(--soft) !important; color: var(--ink) !important; border-color: var(--border) !important; }
+    html.dark-mode .message.sent { background-color: #1e8e3e !important; color: #fff !important; }
+    
+    /* 6. Formulaires et Inputs (Agenda, Chat) */
+    html.dark-mode input, html.dark-mode textarea, html.dark-mode select {
+        background-color: var(--soft) !important;
+        color: var(--ink) !important;
+        border-color: var(--border) !important;
+    }
+    
+    html.dark-mode .notif-badge { border-color: var(--bg) !important; }
+
+/* 7. HACK : Forcer tous les textes à l'intérieur des tableaux à devenir clairs */
+    html.dark-mode td *,
+    html.dark-mode th * {
+        color: var(--ink) !important;
+    }
+
+/* 8. HACK : Boutons actifs et Menu Latéral (Fond blanc, texte et icône noirs) */
+    html.dark-mode .active,
+    html.dark-mode .nav-item.active,
+    html.dark-mode .btn.active,
+    html.dark-mode .fc-button-active,
+    html.dark-mode .nav-pills .nav-link.active {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-color: #ffffff !important;
+    }
+
+    /* Forcer les icônes SVG des éléments actifs à devenir noires */
+    html.dark-mode .active svg,
+    html.dark-mode .nav-item.active svg,
+    html.dark-mode .btn.active svg {
+        stroke: #000000 !important;
+    }
+
+    /* 9. HACK : Avatars (Cercles de profil) - Lettre en noir sur le fond clair */
+    html.dark-mode .avatar,
+    html.dark-mode .avatar-sidebar,
+    html.dark-mode .avatar-circle {
+        color: #000000 !important; /* Force la lettre à être noire */
+    }
+</style>
+
+
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">
+    Skaolink <span>{{ current_user.role }}</span>
+  </div>
+
+
+<nav>
+    <div class="nav-label">Principal</div>
+
+    {% if current_user.role == '[ETUDIANT]' %}
+        <a class="nav-item {{ 'active' if request.endpoint == 'etudiant_dashboard' }}" href="{{ url_for('etudiant_dashboard') }}">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Tableau de bord
+        </a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'etudiant_notes' }}" href="{{ url_for('etudiant_notes') }}">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Mes Notes
+        </a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'etudiant_edt' }}" href="{{ url_for('etudiant_edt') }}">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Emploi du temps
+        </a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'etudiant_absences' }}" href="{{ url_for('etudiant_absences') }}">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Mes Absences
+        </a>
+        <a class="nav-item {{ 'active' if request.endpoint in ['etudiant_dm_liste', 'etudiant_dm_passer', 'etudiant_dm_resultats'] }}" href="{{ url_for('etudiant_dm_liste') }}">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Devoirs Maison
+        </a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'etudiant_devoirs' }}" href="{{ url_for('etudiant_devoirs') }}">
+            <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Agenda Devoirs
+        </a>
+
+    {% elif current_user.role == '[PROF]' %}
+        <a class="nav-item {{ 'active' if request.endpoint == 'prof_dashboard' }}" href="{{ url_for('prof_dashboard') }}">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Accueil Professeur
+        </a>
+        <a class="nav-item {{ 'active' if 'prof_classes' in request.endpoint }}" href="{{ url_for('prof_classes') }}">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Mes Classes
+        </a>
+
+<a href="{{ url_for('prof_dm_liste') }}" class="nav-link">
+    <i class="icon-file-text"></i> Gestion des DM
+</a>
+        <a class="nav-item" href="{{ url_for('prof_edt') }}">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Mon Emploi du temps
+        </a>
+
+<a href="{{ url_for('prof_devoirs_liste') }}" class="nav-link">
+    Agenda Devoirs
+</a>
+    {% endif %}
+
+    <a class="nav-item {{ 'active' if request.endpoint == 'messages_page' }}" href="{{ url_for('messages_page') }}">
+        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-11.7 8.5 8.5 0 0 1 8.5 7.9z"></path></svg>
+        Messagerie
+    </a>
+
+    <div class="nav-label">Gestion</div>
+    <a class="nav-item {{ 'active' if request.endpoint == 'settings' }}" href="{{ url_for('settings') }}">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        Paramètres
+    </a>
+    <a class="nav-item" href="{{ url_for('logout') }}">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+    </a>
+</nav>
+
+
+</nav>
+
+  <div class="sidebar-footer">
+    <div class="user-profile">
+      <div class="avatar-sidebar">{{ current_user.email[0]|upper }}</div>
+      <div class="user-details">
+        <strong>{{ current_user.email.split('@')[0] }}</strong>
+        <span>{{ current_user.email }}</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1>{% block page_title %}Titre de la page{% endblock %}</h1>
+      <p>{% block page_subtitle %}Sous-titre explicatif{% endblock %}</p>
+    </div>
+    <div class="topbar-right">
+      {# ── Clochette notifications messages ── #}
+      <a href="{{ url_for('messages_page') }}" class="notif-bell" id="notif-bell" title="Messages">
+        <svg viewBox="0 0 24 24">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="notif-badge" id="notif-badge">0</span>
+      </a>
+    </div>
+  </div>
+
+  {% block content %}{% endblock %}
+</main>
+
+{# ── SocketIO global pour notifications ── #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+(function() {
+    const bell     = document.getElementById('notif-bell');
+    const badge    = document.getElementById('notif-badge');
+    const isMessages = {{ ('true' if request.endpoint == 'messages_page' else 'false') }};
+    let unreadCount = 0;
+
+    // Connexion SocketIO sur namespace /notif
+    const notifSocket = io('/notif', { transports: ['websocket', 'polling'] });
+
+    notifSocket.on('connect', function() {
+        console.log('Notif socket connecté');
+    });
+
+    // Réception d'une notification de nouveau message
+    notifSocket.on('new_message_notif', function(data) {
+        // Si on est déjà sur la page messages, on n'incrémente pas
+        if (isMessages) return;
+
+        unreadCount++;
+        badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        badge.classList.add('visible');
+
+        // Animation clochette
+        bell.classList.remove('bell-shake');
+        void bell.offsetWidth; // reset animation
+        bell.classList.add('bell-shake');
+    });
+
+    // Clic sur la clochette : reset badge
+    bell.addEventListener('click', function() {
+        unreadCount = 0;
+        badge.textContent = '0';
+        badge.classList.remove('visible');
+    });
+
+    // Si on est sur la page messages, reset badge
+    if (isMessages) {
+        badge.classList.remove('visible');
+    }
+})();
+</script>
+
+<script>
+window.addEventListener('load', function() {
+    // On vérifie si la librairie Chart.js est chargée sur cette page
+    if (typeof Chart !== 'undefined') {
+        const isDark = document.documentElement.classList.contains('dark-mode');
+        
+        if (isDark) {
+            // 1. On change les couleurs globales (Grille et textes des axes)
+            Chart.defaults.color = '#a0a0a0'; // Gris clair pour le texte
+            Chart.defaults.borderColor = '#333333'; // Gris très foncé pour les lignes de fond
+            
+            // 2. On met à jour tous les graphiques affichés sur la page
+            for (let id in Chart.instances) {
+                let chart = Chart.instances[id];
+                
+                // On parcourt les lignes dessinées (ex: la ligne d'évolution)
+                chart.data.datasets.forEach(dataset => {
+                    // Si la ligne était noire (#111), on la passe en blanc (#f5f5f5)
+                    if (dataset.borderColor === '#111' || dataset.borderColor === '#111111') {
+                        dataset.borderColor = '#f5f5f5';
+                    }
+                });
+                
+                // On demande à Chart.js de redessiner le graphique avec les nouvelles couleurs
+                chart.update();
+            }
+        }
+    }
+});
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Stats — {{ etudiant.email.split('@')[0] | capitalize }}{% endblock %}
+{% block page_title %}{{ etudiant.email.split('@')[0] | capitalize }}{% endblock %}
+{% block page_subtitle %}{{ etudiant.email }} — Classe {{ classe.nom }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('prof_classe_detail', id=classe.id) }}" style="text-decoration:none; color:var(--muted); font-size:13px;">
+        ← Retour à la classe
+    </a>
+</div>
+
+{# ── KPIs ── #}
+<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:16px;">
+    <div class="card" style="padding:20px;">
+        <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Moyenne générale</div>
+        <div style="font-size:28px; font-weight:500; letter-spacing:-0.03em; color:#111;">
+            {% if moyenne %}{{ moyenne }}<span style="font-size:14px; color:#aaa;">/20</span>{% else %}<span style="font-size:14px; color:#aaa;">Aucune note</span>{% endif %}
+        </div>
+    </div>
+    <div class="card" style="padding:20px;">
+        <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Notes saisies</div>
+        <div style="font-size:28px; font-weight:500; letter-spacing:-0.03em; color:#111;">{{ notes|length }}</div>
+    </div>
+    <div class="card" style="padding:20px;">
+        <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Absences</div>
+        <div style="font-size:28px; font-weight:500; letter-spacing:-0.03em; color:#111;">{{ absences|length }}</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+    {# ── Notes par matière ── #}
+    <div class="card">
+        <div class="card-head">
+            <span class="card-title">Notes par matière</span>
+        </div>
+        {% if notes %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid #efefef;">
+                    <th style="padding:8px 12px; text-align:left;">Matière</th>
+                    <th style="padding:8px 12px; text-align:center;">Notes</th>
+                    <th style="padding:8px 12px; text-align:right;">Moyenne</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for matiere, data in notes_par_matiere.items() %}
+                <tr style="border-bottom:1px solid #efefef;">
+                    <td style="padding:10px 12px; font-size:13px; font-weight:500; color:#111;">{{ matiere }}</td>
+                    <td style="padding:10px 12px; text-align:center;">
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
+                            {% for note in data.notes %}
+                            <span class="pill active" style="font-size:12px;">
+                                {{ note.valeur }}<sup style="font-size:9px; color:#aaa; margin-left:1px;">{{ note.coefficient }}</sup>
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td style="padding:10px 12px; text-align:right; font-size:13px; font-weight:500; color:#111;">
+                        {{ data.moyenne }}/20
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#aaa; font-size:13px;">Aucune note enregistrée.</p>
+        {% endif %}
+    </div>
+
+    {# ── Graphique radar ── #}
+    <div class="card">
+        <div class="card-head">
+            <span class="card-title">Profil par matière</span>
+        </div>
+        {% if notes %}
+        <canvas id="radarChart" height="220"></canvas>
+        {% else %}
+        <p style="color:#aaa; font-size:13px;">Aucune donnée à afficher.</p>
+        {% endif %}
+    </div>
+
+</div>
+
+{# ── Absences ── #}
+<div class="card">
+    <div class="card-head">
+        <span class="card-title">Absences</span>
+        <span class="card-meta">{{ absences|length }} absence{{ 's' if absences|length > 1 }}</span>
+    </div>
+
+{# ── Absences ── #}
+<div class="card">
+    <div class="card-head">
+        <span class="card-title">Absences</span>
+        <span class="card-meta">{{ absences|length }} absence{{ 's' if absences|length > 1 }}</span>
+    </div>
+    {% if absences %}
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid #efefef;">
+                <th style="padding:8px 12px; text-align:left;">Date</th>
+                <th style="padding:8px 12px; text-align:left;">Motif</th>
+                <th style="padding:8px 12px; text-align:right;">Justifiée</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for absence in absences %}
+            <tr style="border-bottom:1px solid #efefef;">
+                <td style="padding:10px 12px; font-size:13px; color:#111;">{{ absence.date_absence }}</td>
+                <td style="padding:10px 12px; font-size:13px; color:#555;">{{ absence.motif or '—' }}</td>
+                <td style="padding:10px 12px; text-align:right;">
+                    
+                    {# ── NOUVEAU FORMULAIRE D'ACTION ICI ── #}
+                    <form action="{{ url_for('prof_toggle_absence', class_id=classe.id, student_id=etudiant.id, absence_id=absence.id) }}" method="POST" style="display:inline; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        
+                        {% if absence.justifiee %}
+                            <button type="submit" class="pill active" style="border:none; cursor:pointer; background-color:#e8f5e9; color:#2e7d32;" title="Cliquer pour marquer comme non justifiée">
+                                Oui (Annuler)
+                            </button>
+                        {% else %}
+                            <button type="submit" class="pill" style="border:none; cursor:pointer; color:#999;" title="Cliquer pour marquer comme justifiée">
+                                Non (Justifier)
+                            </button>
+                        {% endif %}
+                    </form>
+                    {# ── FIN DU FORMULAIRE ── #}
+
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#aaa; font-size:13px;">Aucune absence enregistrée.</p>
+    {% endif %}
+</div>
+
+</div>
+
+{% if notes %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'Geist', 'Helvetica Neue', sans-serif";
+Chart.defaults.font.size   = 11;
+Chart.defaults.color       = '#aaa';
+
+const matieres = {{ notes_par_matiere.keys() | list | tojson }};
+const moyennes = {{ notes_par_matiere.values() | map(attribute='moyenne') | list | tojson }};
+
+new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+        labels: matieres,
+        datasets: [{
+            label: 'Moyenne',
+            data: moyennes,
+            borderColor: '#111',
+            borderWidth: 1.5,
+            backgroundColor: 'rgba(17,17,17,0.06)',
+            pointBackgroundColor: '#111',
+            pointRadius: 3,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: { displayColors: false, callbacks: { label: ctx => ` ${ctx.parsed.r}/20` } }
+        },
+        scales: {
+            r: {
+                min: 0, max: 20,
+                ticks: { stepSize: 5, backdropColor: 'transparent' },
+                grid: { color: '#efefef' },
+                angleLines: { color: '#efefef' },
+                pointLabels: { font: { size: 11 }, color: '#111' }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+
+{% endblock %}

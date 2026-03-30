@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Classe {{ classe.nom }}{% endblock %}
+{% block page_title %}Classe {{ classe.nom }}{% endblock %}
+{% block page_subtitle %}Liste des étudiants et gestion académique.{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('prof_classes') }}" style="text-decoration: none; color: var(--muted); font-size: 13px;">
+        ← Retour aux classes
+    </a>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--border); background: var(--soft);">
+                <th style="padding: 15px 24px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em;">Étudiant</th>
+                <th style="padding: 15px 24px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em;">Email</th>
+                <th style="padding: 15px 24px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; text-align: right;">Actions rapides</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for etudiant in etudiants %}
+            <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 15px 24px; display: flex; align-items: center; gap: 12px;">
+                    <div class="avatar-circle" style="width: 32px; height: 32px; font-size: 12px; border-radius: 50%; background: var(--soft); border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; font-weight: bold;">
+                        {{ etudiant.email[0]|upper }}
+                    </div>
+                    <strong style="font-size: 14px;">{{ etudiant.email.split('@')[0] | capitalize }}</strong>
+                </td>
+                <td style="padding: 15px 24px; font-size: 13px; color: var(--muted);">
+                    {{ etudiant.email }}
+                </td>
+                <td style="padding: 15px 24px; text-align: right;">
+                    <button class="pill" style="cursor: pointer; background: transparent;">Saisir Note</button>
+                    <button class="pill" style="cursor: pointer; background: transparent;">Saisir Absence</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3" style="padding: 30px; text-align: center; color: var(--muted);">
+                    Aucun étudiant inscrit dans cette classe.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Mes Absences{% endblock %}
+{% block page_title %}Mes Absences{% endblock %}
+{% block page_subtitle %}Suivi de votre assiduité scolaire.{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-head">
+        <div class="card-title">Historique des absences</div>
+    </div>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+    
+    {% for absence in absences %}
+        <li style="padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong style="font-size: 14px;">{{ absence.date_absence }}</strong><br>
+                <small style="color: var(--muted);">Motif : {{ absence.motif or 'Non renseigné' }}</small>
+            </div>
+            
+            <div>
+                {% if absence.justifiee %}
+                    <span class="pill active" style="background: #4CAF50; border-color: #4CAF50; color: white;">Justifiée</span>
+                {% else %}
+                    <span class="pill" style="color: #e74c3c; border-color: #e74c3c;">Non justifiée</span>
+                {% endif %}
+            </div>
+        </li>
+        
+    {% else %}
+        <li style="padding: 30px 20px; text-align: center; color: var(--muted); font-size: 14px;">
+            Vous n'avez aucune absence enregistrée. Continuez comme ça ! 🎉
+        </li>
+    {% endfor %}
+    
+    </ul>
+</div>
+{% endblock %}

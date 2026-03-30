@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Mes Classes{% endblock %}
+{% block page_title %}Mes Classes{% endblock %}
+{% block page_subtitle %}Sélectionnez une classe pour consulter la liste des élèves.{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+    {% for classe in classes %}
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="card-head">
+            <span class="card-title" style="font-size: 18px; font-weight: 600;">Classe {{ classe.nom }}</span>
+            <span class="pill" style="background: var(--ink); color: var(--bg);">{{ classe.etudiants|selectattr('role', 'equalto', '[ETUDIANT]')|list|length }} élèves</span>
+        </div>
+        
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+            Gérez les notes, les absences et l'assiduité des élèves de cette classe.
+        </p>
+        
+        <a href="{{ url_for('prof_classe_detail', id=classe.id) }}" class="btn btn-outline" style="text-align: center; display: block; text-decoration: none; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-weight: 500;">
+            Ouvrir la classe
+        </a>
+    </div>
+    {% else %}
+    <p style="color: var(--muted);">Aucune classe n'est disponible pour le moment.</p>
+    {% endfor %}
+</div>
+{% endblock %}

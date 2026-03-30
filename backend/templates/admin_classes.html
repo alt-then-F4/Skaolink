@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="margin-bottom:20px;">
+    <h3 style="margin-top:0;">Créer une nouvelle classe</h3>
+    <form action="{{ url_for('admin_classes') }}" method="POST" style="display:flex; gap:10px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="nom" placeholder="Ex: Terminale S1" required style="flex-grow:1; padding:10px; border-radius:8px; border:1px solid var(--border);">
+        <button type="submit" class="btn btn-success" style="background:#1e8e3e; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Créer</button>
+    </form>
+</div>
+
+<div class="card">
+    <table style="width:100%; border-collapse:collapse; text-align:left;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase;">
+                <th style="padding:15px;">Nom de la classe</th>
+                <th style="padding:15px; text-align:right;">Nombre d'élèves</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for classe in classes %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:15px; font-weight:500;">{{ classe.nom }}</td>
+                <td style="padding:15px; text-align:right;"><span class="pill">{{ classe.etudiants|length }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

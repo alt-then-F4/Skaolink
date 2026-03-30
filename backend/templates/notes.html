@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block title %}Mes Notes{% endblock %}
+{% block page_title %}Mes Notes{% endblock %}
+{% block page_subtitle %}Consultez l'ensemble de vos résultats académiques.{% endblock %}
+{% block content %}
+
+{# ── Popup moyenne classe ── #}
+<div id="popup" style="
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #efefef;
+    border-radius: 8px;
+    padding: 14px 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    font-family: 'Geist', 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    min-width: 180px;
+    pointer-events: none;
+">
+    <div id="popup-matiere" style="font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;"></div>
+    <div style="display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; justify-content: space-between; gap: 24px;">
+            <span style="color: #aaa;">Ma note</span>
+            <span id="popup-ma-note" style="font-weight: 500; color: #111;"></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 24px;">
+            <span style="color: #aaa;">Moy. classe</span>
+            <span id="popup-moy-classe" style="font-weight: 500; color: #111;"></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 24px;">
+            <span style="color: #aaa;">Élèves</span>
+            <span id="popup-nb-eleves" style="color: #555;"></span>
+        </div>
+    </div>
+</div>
+
+{# ── Tableau des notes ── #}
+<div class="card">
+    <div class="card-head">
+        <span class="card-title">Détail par matière</span>
+        {% if moyenne %}
+        <span class="card-meta">Moyenne générale : <strong style="color: #111;">{{ moyenne }}/20</strong></span>
+        {% endif %}
+    </div>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="text-align: left; border-bottom: 1px solid #efefef; color: #aaa; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;">
+                    <th style="padding: 12px 15px;">Matière</th>
+                    <th style="padding: 12px 15px; text-align: center;">Moyenne</th>
+                    <th style="padding: 12px 15px;">Notes <small style="text-transform: none; letter-spacing: 0;">(cliquer pour détail)</small></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for matiere, notes_matiere in current_user.notes|groupby('matiere') %}
+                <tr style="border-bottom: 1px solid #efefef;">
+                    <td style="padding: 15px; min-width: 150px;">
+                        <strong style="font-size: 13px; color: #111;">{{ matiere }}</strong>
+                    </td>
+                    <td style="padding: 15px; text-align: center; min-width: 90px;">
+                        <span style="font-size: 13px; font-weight: 500; color: #111;">
+                            {{ moyennes_par_matiere[matiere] }}/20
+                        </span>
+                    </td>
+                    <td style="padding: 15px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            {% for note in notes_matiere %}
+                                <span
+                                    class="pill active note-clickable"
+                                    data-note-id="{{ note.id }}"
+                                    style="font-size: 13px; padding: 5px 11px; cursor: pointer; transition: opacity .15s;"
+                                    onmouseenter="this.style.opacity='.7'"
+                                    onmouseleave="this.style.opacity='1'"
+                                >
+                                    {{ note.valeur }}<sup style="font-size: 9px; color: #aaa; margin-left: 2px;">{{ note.coefficient }}</sup>
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Graphiques ── #}
+{% if current_user.notes %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+
+    <div class="card">
+        <div class="card-head">
+            <span class="card-title">Évolution de la moyenne</span>
+            <span class="card-meta">Par évaluation</span>
+        </div>
+        <canvas id="chartEvolution" height="160"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <span class="card-title">Résultats par matière</span>
+            <span class="card-meta">Moyenne pondérée</span>
+        </div>
+        <canvas id="chartMatiere" height="160"></canvas>
+    </div>
+
+</div>
+{% endif %}
+
+{# ── Scripts ── #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+
+// ── Popup : clic sur une note ──
+const popup = document.getElementById('popup');
+
+document.querySelectorAll('.note-clickable').forEach(el => {
+    el.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        const noteId = this.dataset.noteId;
+
+        // Position du popup
+        const rect = this.getBoundingClientRect();
+        popup.style.display = 'block';
+        popup.style.left = (rect.left + window.scrollX) + 'px';
+        popup.style.top  = (rect.bottom + window.scrollY + 8) + 'px';
+
+        document.getElementById('popup-matiere').textContent  = '…';
+        document.getElementById('popup-ma-note').textContent  = '…';
+        document.getElementById('popup-moy-classe').textContent = '…';
+        document.getElementById('popup-nb-eleves').textContent  = '…';
+
+        try {
+            const res  = await fetch(`/api/note/${noteId}/moyenne-classe`);
+            const data = await res.json();
+            document.getElementById('popup-matiere').textContent    = data.matiere;
+            document.getElementById('popup-ma-note').textContent    = `${data.ma_note}/20`;
+            document.getElementById('popup-moy-classe').textContent = `${data.moyenne_classe}/20`;
+            document.getElementById('popup-nb-eleves').textContent  = `${data.nb_eleves} élève${data.nb_eleves > 1 ? 's' : ''}`;
+        } catch {
+            document.getElementById('popup-matiere').textContent = 'Erreur';
+        }
+    });
+});
+
+// Ferme le popup en cliquant ailleurs
+document.addEventListener('click', () => { popup.style.display = 'none'; });
+
+{% if current_user.notes %}
+// ── Charts ──
+Chart.defaults.font.family = "'Geist', 'Helvetica Neue', sans-serif";
+Chart.defaults.font.size   = 11;
+Chart.defaults.color       = '#aaa';
+
+const ink  = '#111';
+const grey = '#777';
+const grid = '#f0f0f0';
+
+const evolutionData = {{ evolution_data | tojson }};
+const matieresData  = {{ matieres_data  | tojson }};
+
+function moyennePonderee(notes) {
+    const poids = notes.reduce((s, n) => s + n.coefficient, 0);
+    if (!poids) return 0;
+    return Math.round(notes.reduce((s, n) => s + n.valeur * n.coefficient, 0) / poids * 100) / 100;
+}
+
+new Chart(document.getElementById('chartEvolution'), {
+    type: 'line',
+    data: {
+        labels: evolutionData.labels,
+        datasets: [
+            {
+                label: 'Ma moyenne',
+                data: evolutionData.etudiant,
+                borderColor: ink, borderWidth: 1.5,
+                pointBackgroundColor: ink, pointRadius: 3, pointHoverRadius: 5,
+                tension: 0.4, fill: false,
+            },
+            {
+                label: 'Moyenne de la classe',
+                data: evolutionData.classe,
+                borderColor: grey, borderWidth: 1.5,
+                pointBackgroundColor: grey, pointRadius: 3, pointHoverRadius: 5,
+                tension: 0.4, fill: false, borderDash: [4, 3],
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 20, padding: 16, usePointStyle: true } },
+            tooltip: { displayColors: false, callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y}/20` } }
+        },
+        scales: {
+            x: { grid: { display: false }, border: { display: false } },
+            y: { min: 0, max: 20, grid: { color: grid }, border: { display: false }, ticks: { maxTicksLimit: 5 } }
+        }
+    }
+});
+
+new Chart(document.getElementById('chartMatiere'), {
+    type: 'radar',
+    data: {
+        labels: Object.keys(matieresData),
+        datasets: [{
+            label: 'Ma moyenne',
+            data: Object.keys(matieresData).map(m => moyennePonderee(matieresData[m])),
+            borderColor: ink, borderWidth: 1.5,
+            backgroundColor: 'rgba(17,17,17,0.06)',
+            pointBackgroundColor: ink, pointRadius: 3,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: { displayColors: false, callbacks: { label: ctx => ` ${ctx.parsed.r}/20` } }
+        },
+        scales: {
+            r: {
+                min: 0, max: 20,
+                ticks: { stepSize: 5, backdropColor: 'transparent' },
+                grid: { color: '#efefef' },
+                angleLines: { color: '#efefef' },
+                pointLabels: { font: { size: 10 }, color: ink }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+
+{% endblock %}

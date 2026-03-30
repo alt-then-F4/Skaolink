@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="margin-bottom:20px;">
+    <h3 style="margin-top:0;">Créer un utilisateur</h3>
+    <form action="{{ url_for('admin_users') }}" method="POST" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="email" name="email" placeholder="Email" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
+        <input type="password" name="password" placeholder="Mot de passe" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
+        <select name="role" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
+            <option value="[ETUDIANT]">🎓 Étudiant</option>
+            <option value="[PROF]">👨‍🏫 Professeur</option>
+            <option value="[ADMIN]">🔑 Administrateur</option>
+        </select>
+        <select name="classe_id" style="padding:10px; border-radius:8px; border:1px solid var(--border);">
+            <option value="">Aucune classe (Prof/Admin)</option>
+            {% for c in classes %}
+                <option value="{{ c.id }}">{{ c.nom }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-success" style="grid-column: span 2; background:#1a73e8; color:white; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold;">Enregistrer le compte</button>
+    </form>
+</div>
+{% endblock %}

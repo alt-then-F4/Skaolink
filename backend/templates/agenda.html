@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% block title %}Mon Agenda{% endblock %}
+{% block page_title %}Mon Agenda{% endblock %}
+{% block page_subtitle %}Consultez vos devoirs et échéances à venir.{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+<style>
+#calendar {
+    font-family: 'Geist', 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+}
+
+/* Toolbar */
+.fc .fc-toolbar-title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #111;
+}
+
+.fc .fc-button {
+    background: #fff;
+    border: 1px solid #efefef;
+    color: #111;
+    font-family: 'Geist', 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    box-shadow: none;
+    transition: border-color .15s, background .15s;
+}
+
+.fc .fc-button:hover {
+    background: #f7f7f7;
+    border-color: #ccc;
+    color: #111;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+    background: #111;
+    border-color: #111;
+    color: #fff;
+}
+
+.fc .fc-button:focus { box-shadow: none; }
+
+/* Grille */
+.fc .fc-col-header-cell-cushion {
+    font-size: 11px;
+    font-weight: 400;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    padding: 8px 0;
+}
+
+.fc .fc-daygrid-day-number {
+    font-size: 11px;
+    color: #aaa;
+    text-decoration: none;
+    padding: 6px 8px;
+}
+
+.fc .fc-day-today {
+    background: #f7f7f7 !important;
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+    color: #111;
+    font-weight: 500;
+}
+
+.fc td, .fc th {
+    border-color: #efefef;
+}
+
+.fc .fc-scrollgrid {
+    border-color: #efefef;
+}
+
+/* Événements */
+.fc-event {
+    border: none !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+    cursor: pointer;
+}
+
+.fc-event-title { font-weight: 400 !important; }
+
+/* Popup devoir */
+#devoir-popup {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #efefef;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    font-family: 'Geist', 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    min-width: 220px;
+    max-width: 300px;
+}
+
+#devoir-popup-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #111;
+    margin-bottom: 10px;
+}
+
+#devoir-popup-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.devoir-popup-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.devoir-popup-label { color: #aaa; }
+.devoir-popup-value { color: #111; font-weight: 500; }
+
+#devoir-popup-close {
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: 16px;
+    color: #aaa;
+    cursor: pointer;
+    line-height: 1;
+    border: none;
+    background: none;
+    font-family: inherit;
+}
+
+#devoir-popup-close:hover { color: #111; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Popup détail devoir ── #}
+<div id="devoir-popup" style="position: fixed;">
+    <button id="devoir-popup-close">×</button>
+    <div id="devoir-popup-title"></div>
+    <div id="devoir-popup-body"></div>
+</div>
+
+{# ── Légende matières ── #}
+{% if devoirs %}
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+    {% for matiere in matieres %}
+    <span class="pill active" style="background: {{ matiere.couleur }}; border-color: {{ matiere.couleur }}; font-size: 11px;">
+        {{ matiere.nom }}
+    </span>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ── Calendrier ── #}
+<div class="card" style="padding: 20px;">
+    <div id="calendar"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script>
+const devoirs = {{ devoirs_json | tojson }};
+
+// Ferme le popup
+const popup = document.getElementById('devoir-popup');
+document.getElementById('devoir-popup-close').addEventListener('click', () => {
+    popup.style.display = 'none';
+});
+document.addEventListener('click', (e) => {
+    if (!popup.contains(e.target) && !e.target.closest('.fc-event')) {
+        popup.style.display = 'none';
+    }
+});
+
+// Init FullCalendar
+const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'dayGridMonth',
+    locale: 'fr',
+    firstDay: 1,
+    height: 'auto',
+    headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,listWeek'
+    },
+    buttonText: {
+        today: "Aujourd'hui",
+        month: 'Mois',
+        list: 'Liste'
+    },
+    events: devoirs,
+    eventClick: function(info) {
+        const e = info.event;
+        const props = e.extendedProps;
+
+        // Position du popup
+        const rect = info.el.getBoundingClientRect();
+        popup.style.display = 'block';
+        popup.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 320) + 'px';
+        popup.style.top  = (rect.bottom + window.scrollY + 8) + 'px';
+
+        document.getElementById('devoir-popup-title').textContent = e.title;
+        document.getElementById('devoir-popup-body').innerHTML = `
+            <div class="devoir-popup-row">
+                <span class="devoir-popup-label">Matière</span>
+                <span class="devoir-popup-value">${props.matiere}</span>
+            </div>
+            <div class="devoir-popup-row">
+                <span class="devoir-popup-label">Pour le</span>
+                <span class="devoir-popup-value">${e.start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+            </div>
+            ${props.description ? `
+            <div class="devoir-popup-row" style="flex-direction: column; gap: 2px;">
+                <span class="devoir-popup-label">Détail</span>
+                <span style="color: #555; font-size: 11px; line-height: 1.4;">${props.description}</span>
+            </div>` : ''}
+        `;
+    },
+    eventMouseEnter: function(info) {
+        info.el.style.opacity = '0.8';
+    },
+    eventMouseLeave: function(info) {
+        info.el.style.opacity = '1';
+    },
+    noEventsContent: 'Aucun devoir à venir.',
+});
+
+calendar.render();
+</script>
+{% endblock %}

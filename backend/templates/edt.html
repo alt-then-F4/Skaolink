@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% block title %}Mon Emploi du Temps{% endblock %}
+{% block page_title %}Mon Emploi du Temps{% endblock %}
+{% block page_subtitle %}Consultez votre planning de la semaine.{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Toolbar ── */
+.fc .fc-toolbar-title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #111;
+}
+
+.fc .fc-button {
+    background: #fff;
+    border: 1px solid #efefef;
+    color: #111;
+    font-family: 'Geist', 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    box-shadow: none;
+    transition: border-color .15s, background .15s;
+}
+
+.fc .fc-button:hover {
+    background: #f7f7f7;
+    border-color: #ccc;
+    color: #111;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+    background: #111;
+    border-color: #111;
+    color: #fff;
+}
+
+.fc .fc-button:focus { box-shadow: none; outline: none; }
+
+/* ── En-têtes jours ── */
+.fc .fc-col-header-cell-cushion {
+    font-size: 11px;
+    font-weight: 400;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    padding: 8px 0;
+}
+
+/* ── Heures ── */
+.fc .fc-timegrid-slot-label-cushion {
+    font-size: 10px;
+    color: #bbb;
+}
+
+/* ── Grille ── */
+.fc td, .fc th { border-color: #efefef; }
+.fc .fc-scrollgrid { border-color: #efefef; }
+.fc .fc-timegrid-now-indicator-line { border-color: #111; }
+.fc .fc-day-today { background: #fafafa !important; }
+.fc .fc-day-today .fc-col-header-cell-cushion { color: #111; font-weight: 500; }
+
+/* ── Événements ── */
+.fc-event {
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 3px 6px !important;
+    cursor: pointer;
+    transition: opacity .15s;
+}
+
+.fc-event:hover { opacity: 0.8; }
+.fc-event-title { font-size: 11px !important; font-weight: 500 !important; }
+.fc-event-time  { font-size: 10px !important; opacity: 0.75; }
+
+/* ── Popup ── */
+#cours-popup {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #efefef;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    font-family: 'Geist', 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    min-width: 220px;
+    max-width: 280px;
+}
+
+#cours-popup-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #111;
+    margin-bottom: 12px;
+    padding-right: 20px;
+}
+
+.popup-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.popup-row:last-child { border-bottom: none; }
+.popup-label { color: #aaa; }
+.popup-value { color: #111; font-weight: 500; text-align: right; }
+
+#cours-popup-close {
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: 18px;
+    color: #ccc;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: inherit;
+    line-height: 1;
+}
+
+#cours-popup-close:hover { color: #111; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Popup détail cours ── #}
+<div id="cours-popup">
+    <button id="cours-popup-close">×</button>
+    <div id="cours-popup-title"></div>
+    <div id="cours-popup-body"></div>
+</div>
+
+{# ── Légende matières ── #}
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+    {% for matiere, couleur in legende.items() %}
+    <span style="
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 11px; color: #555;
+        padding: 4px 10px;
+        border: 1px solid #efefef;
+        border-radius: 20px;
+    ">
+        <span style="width:8px; height:8px; border-radius:50%; background:{{ couleur }}; display:inline-block;"></span>
+        {{ matiere }}
+    </span>
+    {% endfor %}
+</div>
+
+{# ── Calendrier ── #}
+<div class="card" style="padding: 20px;">
+    <div id="calendar"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/fr.global.min.js"></script>
+<script>
+const cours = {{ cours_json | tojson }};
+
+// ── Popup ──
+const popup = document.getElementById('cours-popup');
+
+document.getElementById('cours-popup-close').addEventListener('click', () => {
+    popup.style.display = 'none';
+});
+
+document.addEventListener('click', (e) => {
+    if (!popup.contains(e.target) && !e.target.closest('.fc-event')) {
+        popup.style.display = 'none';
+    }
+});
+
+// ── FullCalendar ──
+const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'timeGridWeek',
+    locale: 'fr',
+    firstDay: 1,
+    height: 'auto',
+    slotMinTime: '07:30:00',
+    slotMaxTime: '19:00:00',
+    slotDuration: '00:30:00',
+    slotLabelInterval: '01:00:00',
+    allDaySlot: false,
+    nowIndicator: true,
+    weekends: false,
+    headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'timeGridWeek,timeGridDay'
+    },
+    buttonText: {
+        today: "Aujourd'hui",
+        week: 'Semaine',
+        day: 'Jour'
+    },
+    events: cours,
+    eventClick: function(info) {
+        const e = info.event;
+        const p = e.extendedProps;
+
+        const rect = info.el.getBoundingClientRect();
+        const popupW = 280;
+        let left = rect.right + window.scrollX + 8;
+        if (left + popupW > window.innerWidth) {
+            left = rect.left + window.scrollX - popupW - 8;
+        }
+        popup.style.left = left + 'px';
+        popup.style.top  = (rect.top + window.scrollY) + 'px';
+        popup.style.display = 'block';
+
+        const fmt = (d) => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+        document.getElementById('cours-popup-title').textContent = p.matiere;
+        document.getElementById('cours-popup-body').innerHTML = `
+            <div class="popup-row">
+                <span class="popup-label">Professeur</span>
+                <span class="popup-value">${p.professeur}</span>
+            </div>
+            <div class="popup-row">
+                <span class="popup-label">Salle</span>
+                <span class="popup-value">${p.salle}</span>
+            </div>
+            <div class="popup-row">
+                <span class="popup-label">Horaire</span>
+                <span class="popup-value">${fmt(e.start)} – ${fmt(e.end)}</span>
+            </div>
+        `;
+    }
+});
+
+calendar.render();
+</script>
+{% endblock %}

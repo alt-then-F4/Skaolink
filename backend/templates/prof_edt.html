@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Mon Emploi du Temps{% endblock %}
+{% block page_title %}Mon Emploi du Temps{% endblock %}
+{% block page_subtitle %}Gérez vos heures de cours et vos classes.{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+    
+    <div class="card" style="align-self: start;">
+        <h3 style="margin-top: 0; font-size: 16px;">Ajouter un cours</h3>
+        <form action="{{ url_for('prof_add_cours') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Matière</label>
+                <input type="text" name="matiere" required placeholder="Ex: Histoire-Géo" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Classe</label>
+                <select name="classe_id" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                    <option value="">Sélectionner une classe</option>
+                    {% for classe in classes %}
+                        <option value="{{ classe.id }}">{{ classe.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Salle</label>
+                <input type="text" name="salle" required placeholder="Ex: B204" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Jour</label>
+                <select name="jour" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                    <option value="0">Lundi</option>
+                    <option value="1">Mardi</option>
+                    <option value="2">Mercredi</option>
+                    <option value="3">Jeudi</option>
+                    <option value="4">Vendredi</option>
+                </select>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Heure de début</label>
+                    <input type="time" name="heure_debut" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Heure de fin</label>
+                    <input type="time" name="heure_fin" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-success" style="width: 100%; background: #1e8e3e; color: white; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                Ajouter à l'agenda
+            </button>
+        </form>
+    </div>
+    
+    <div class="card" style="padding: 20px;">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var coursEvents = {{ cours_json | tojson | safe }};
+        
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            slotMinTime: '08:00:00', // Le calendrier commence à 8h
+            slotMaxTime: '18:00:00', // Et finit à 18h
+            hiddenDays: [0, 6],      // On cache le dimanche (0) et le samedi (6)
+            allDaySlot: false,
+            locale: 'fr',
+            headerToolbar: false,    // Pas d'entête (on reste sur une vue "semaine type")
+            dayHeaderFormat: { weekday: 'long' },
+            events: coursEvents,
+            height: 'auto',
+            eventContent: function(arg) {
+                return {
+                    html: `<div style="font-size: 11px; padding: 4px; overflow: hidden;">
+                            <b style="font-size:12px;">${arg.event.title}</b><br>
+                            ${arg.timeText}
+                           </div>`
+                };
+            }
+        });
+        
+        calendar.render();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Messagerie - Skaolink{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-container {
+        display: flex;
+        height: calc(100vh - 180px);
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    /* Sidebar */
+    .chat-sidebar {
+        width: 320px;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        background: #fcfcfc;
+    }
+
+    .sidebar-header {
+        padding: 20px;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .conv-list { flex-grow: 1; overflow-y: auto; }
+
+    .conv-item {
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: 0.2s;
+        border-bottom: 1px solid #f5f5f5;
+    }
+
+    .conv-item:hover { background: #f0f2f5; }
+    .conv-item.active { background: #fff; border-left: 4px solid var(--ink); }
+
+    .avatar-circle {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: var(--ink); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; flex-shrink: 0;
+    }
+
+    /* Fenêtre de Chat */
+    .chat-main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+    }
+
+    .chat-header {
+        padding: 15px 25px;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 15px;
+    }
+
+    #message-window {
+        flex-grow: 1;
+        padding: 25px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        background: #fdfdfd; /* Fond épuré Skaolink */
+    }
+
+    /* Bulles */
+    .message {
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        font-size: 14px;
+        position: relative;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .message.sent {
+        align-self: flex-end;
+        background: var(--ink);
+        color: #fff;
+        border-bottom-right-radius: 2px;
+    }
+
+    .message.received {
+        align-self: flex-start;
+        background: #fff;
+        color: var(--ink);
+        border: 1px solid #eee;
+        border-bottom-left-radius: 2px;
+    }
+
+    .message img { max-width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; display: block; }
+    .msg-info { font-size: 10px; margin-top: 5px; opacity: 0.7; display: block; text-align: right; }
+
+    /* Input Area */
+    .chat-input-area {
+        padding: 15px 25px;
+        background: #fff;
+        border-top: 1px solid var(--border);
+        display: flex; gap: 15px; align-items: center;
+    }
+
+    .chat-input-area input[type="text"] {
+        flex-grow: 1; padding: 12px 20px;
+        border: 1px solid #eee; border-radius: 25px;
+        outline: none; background: #f8f9fa;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;
+    }
+    .modal-content { background: #fff; padding: 25px; border-radius: 15px; width: 350px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="contact-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+            <h3 style="margin:0;">Nouveau message</h3>
+            <button onclick="closeModal()" style="border:none; background:none; cursor:pointer; font-size:24px;">&times;</button>
+        </div>
+        <div id="contact-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+</div>
+
+<div class="chat-container">
+    <div class="chat-sidebar">
+        <div class="sidebar-header">
+            <h2 style="font-size: 18px; margin:0;">Messages</h2>
+            <button class="btn btn-outline" onclick="openContactModal()">+ Nouveau</button>
+        </div>
+        <div class="conv-list">
+            {% for conv in conversations %}
+            <div class="conv-item" data-id="{{ conv.id }}" onclick="loadConversation('{{ conv.id }}', '{{ conv.display_name }}')">
+                <div class="avatar-circle">{{ conv.display_name[0] | upper }}</div>
+                <div style="overflow: hidden;">
+                    <div style="font-weight: 600; font-size: 14px;">{{ conv.display_name }}</div>
+                    <div style="font-size: 11px; color: var(--muted);">Cliquer pour discuter</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+
+<div class="chat-main">
+        <div class="chat-header" style="justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="avatar-circle" id="active-avatar">?</div>
+                <div>
+                    <div id="active-chat-name" style="font-weight: 600;">Sélectionnez un chat</div>
+                    <div style="font-size: 11px; color: #1e8e3e;">En ligne</div>
+                </div>
+            </div>
+            <button id="btn-appeler" style="display: none; border: none; background: #e8f0fe; color: var(--ink); padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600;" onclick="lancerAppel()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                Appeler
+            </button>
+        </div>
+
+
+        <div id="message-window">
+            <div style="text-align: center; color: var(--muted); margin-top: 100px;">
+                👋 Choisissez une discussion à gauche.
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <label for="image-upload" style="cursor:pointer; color: var(--muted);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </label>
+            <input type="file" id="image-upload" hidden accept="image/*" onchange="uploadImage()" onclick="this.value=null">
+            <input type="text" id="msg-input" placeholder="Taper un message..." onkeypress="if(event.key === 'Enter') sendMessage()">
+            <button onclick="sendMessage()" style="border:none; background:none; color: var(--ink); cursor:pointer;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="popup-appel" style="display: none; position: fixed; top: 20px; right: 20px; background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 9999;">
+    <p style="margin: 0 0 15px 0;">📞 <strong id="appelant-nom">Quelqu'un</strong> vous appelle !</p>
+    <div style="display: flex; gap: 10px;">
+        <button id="btn-accepter" class="btn btn-success" style="background: #1e8e3e; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;">Accepter</button>
+        <button id="btn-refuser" class="btn btn-danger" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;">Refuser</button>
+    </div>
+</div>
+
+<div id="visio-container" style="display: none; position: fixed; top: 5%; left: 5%; width: 90%; height: 90%; background: #111; z-index: 10000; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); flex-direction: column; overflow: hidden;">
+    <div style="text-align: right; padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: white; font-weight: 600;">Skaolink Visio</span>
+        <button onclick="raccrocher()" style="background: #dc3545; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 8px; font-weight: bold;">Raccrocher</button>
+    </div>
+    <div id="jitsi-iframe" style="width: 100%; flex-grow: 1;"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script src="https://meet.jit.si/external_api.js"></script>
+
+<script>
+    const socket = io();
+    let currentConversationId = null;
+    const currentUserId = {{ current_user.id }};
+    let jitsiApi = null;
+
+    // --- 1. RÉCEPTION TEMPS RÉEL (TOUJOURS ACTIF) ---
+    socket.on('receive_message', function(data) {
+        console.log("receive_message reçu:", JSON.stringify(data));
+        if (currentConversationId && String(data.conversation_id) === String(currentConversationId)) {
+            if (data.image_url && data.sender_id === currentUserId) return;
+            displayMessage(data);
+            const win = document.getElementById('message-window');
+            win.scrollTop = win.scrollHeight;
+            socket.emit('mark_read', { room: currentConversationId });
+        }
+    });
+
+    socket.on('messages_read', function(data) {
+        if (String(data.conversation_id) === String(currentConversationId)) {
+            document.querySelectorAll('.msg-vu').forEach(el => el.remove());
+            const sentMessages = document.querySelectorAll('.message.sent');
+            if (sentMessages.length > 0) {
+                const last = sentMessages[sentMessages.length - 1];
+                const vuSpan = document.createElement('span');
+                vuSpan.className = 'msg-vu';
+                vuSpan.style.cssText = 'font-size:10px; color:#aaa; display:block; text-align:right; margin-top:2px;';
+                vuSpan.textContent = 'Vu';
+                last.appendChild(vuSpan);
+            }
+        }
+    });
+
+    // --- 2. CHARGER L'HISTORIQUE ---
+    function loadConversation(id, name) {
+        currentConversationId = String(id);
+        const win = document.getElementById('message-window');
+
+        document.getElementById('active-chat-name').innerText = name;
+        document.getElementById('active-avatar').innerText = name[0].toUpperCase();
+        
+        // Affiche le bouton d'appel maintenant qu'on a sélectionné un chat
+        document.getElementById('btn-appeler').style.display = 'flex';
+
+        win.innerHTML = '<p style="text-align:center; margin-top:20px; color:var(--muted);">Chargement...</p>';
+
+        socket.emit('join', { room: currentConversationId });
+
+        fetch(`/api/chat/history/${id}`)
+        .then(res => res.json())
+        .then(messages => {
+            win.innerHTML = '';
+            messages.forEach(msg => displayMessage(msg));
+            win.scrollTop = win.scrollHeight;
+            socket.emit('mark_read', { room: currentConversationId });
+        });
+
+        document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.conv-item[data-id="${id}"]`).classList.add('active');
+    }
+
+    // --- 3. FONCTION COMMUNE D'AFFICHAGE ---
+    function displayMessage(data) {
+        const win = document.getElementById('message-window');
+        const isMe = data.sender_id === currentUserId;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${isMe ? 'sent' : 'received'}`;
+
+        let content = data.image_url
+            ? `<img src="${data.image_url}" onclick="window.open(this.src)">`
+            : `<div>${data.content}</div>`;
+
+        msgDiv.innerHTML = `
+            <div style="font-size: 10px; font-weight: bold; margin-bottom: 2px; opacity: 0.7;">
+                ${isMe ? 'Moi' : data.sender_email}
+            </div>
+            ${content}
+            <span class="msg-info">${data.timestamp}</span>
+        `;
+        if (isMe && data.lu) {
+            const vuSpan = document.createElement('span');
+            vuSpan.className = 'msg-vu';
+            vuSpan.style.cssText = 'font-size:10px; color:#aaa; display:block; text-align:right; margin-top:2px;';
+            vuSpan.textContent = 'Vu';
+            msgDiv.appendChild(vuSpan);
+        }
+        win.appendChild(msgDiv);
+    }
+
+    // --- 4. ENVOI ---
+    function sendMessage() {
+        const input = document.getElementById('msg-input');
+        if (input.value.trim() && currentConversationId) {
+            socket.emit('send_message', {
+                room: currentConversationId,
+                message: input.value.trim()
+            });
+            input.value = "";
+        }
+    }
+
+    function uploadImage() {
+        const file = document.getElementById('image-upload').files[0];
+        if (!file || !currentConversationId) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image trop lourde (max 2MB). Compresse-la avant envoi.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            displayMessage({
+                sender_id: currentUserId,
+                sender_email: "Moi",
+                image_url: e.target.result,
+                content: null,
+                timestamp: new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
+            });
+            const win = document.getElementById('message-window');
+            win.scrollTop = win.scrollHeight;
+
+            socket.emit('send_image', {
+                room: currentConversationId,
+                image_data: e.target.result,
+                filename: file.name
+            });
+        };
+        reader.readAsDataURL(file);
+        document.getElementById('image-upload').value = '';
+    }
+
+    // --- 5. MODALE ---
+    function openContactModal() {
+        document.getElementById('contact-modal').style.display = 'flex';
+        const list = document.getElementById('contact-list');
+        list.innerHTML = 'Chargement...';
+        fetch('/api/users/list').then(res => res.json()).then(users => {
+            list.innerHTML = '';
+            users.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'conv-item';
+                div.style.borderRadius = '8px';
+                div.innerHTML = `<div class="avatar-circle" style="width:30px;height:30px;font-size:11px;">${u.email[0].toUpperCase()}</div><div>${u.email}</div>`;
+                div.onclick = () => {
+                    fetch('/api/conversations/create', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-CSRFToken': "{{ csrf_token() }}"},
+                        body: JSON.stringify({ user_ids: [u.id] })
+                    }).then(() => window.location.reload());
+                };
+                list.appendChild(div);
+            });
+        });
+    }
+
+    function closeModal() { 
+        document.getElementById('contact-modal').style.display = 'none'; 
+    }
+
+    // --- 6. LOGIQUE APPEL VIDÉO JITSI ---
+    function lancerAppel() {
+        if (!currentConversationId) return;
+        socket.emit('demande_appel', { conversation_id: currentConversationId });
+        alert("Appel en cours... en attente de réponse.");
+    }
+
+    socket.on('appel_entrant', function(data) {
+        document.getElementById('appelant-nom').innerText = data.expediteur_nom;
+        document.getElementById('popup-appel').style.display = 'block';
+
+        document.getElementById('btn-accepter').onclick = function() {
+            document.getElementById('popup-appel').style.display = 'none';
+            socket.emit('reponse_appel', {
+                expediteur_id: data.expediteur_id,
+                accepte: true,
+                room_name: data.room_name,
+                conversation_id: data.conversation_id
+            });
+            demarrerJitsi(data.room_name);
+        };
+
+        document.getElementById('btn-refuser').onclick = function() {
+            document.getElementById('popup-appel').style.display = 'none';
+            socket.emit('reponse_appel', {
+                expediteur_id: data.expediteur_id,
+                accepte: false,
+                room_name: data.room_name,
+                conversation_id: data.conversation_id
+            });
+        };
+    });
+
+    socket.on('appel_repondu', function(data) {
+        if (data.accepte) {
+            demarrerJitsi(data.room_name);
+        } else {
+            alert(data.repondeur_nom + " a décliné l'appel.");
+        }
+    });
+
+
+function demarrerJitsi(roomName) {
+        document.getElementById('visio-container').style.display = 'flex';
+        
+        const domain = 'meet.jit.si';
+        const options = {
+            roomName: roomName,
+            width: '100%',
+            height: '100%',
+            parentNode: document.querySelector('#jitsi-iframe'),
+            userInfo: {
+                displayName: "{{ current_user.email }}" 
+            }
+        };
+        jitsiApi = new JitsiMeetExternalAPI(domain, options);
+        
+        // NOUVEAU : On écoute l'événement natif de Jitsi quand on quitte la réunion
+        jitsiApi.addEventListener('videoConferenceLeft', () => {
+            raccrocher();
+        });
+    }
+
+    function raccrocher() {
+        if (jitsiApi) {
+            jitsiApi.dispose(); // Détruit l'Iframe
+            jitsiApi = null;
+            // NOUVEAU : On prévient le serveur que l'appel est fini
+            socket.emit('fin_appel', { conversation_id: currentConversationId });
+        }
+        document.getElementById('visio-container').style.display = 'none';
+    }
+
+</script>
+{% endblock %}

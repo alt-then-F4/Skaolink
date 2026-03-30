@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Résultats du DM{% endblock %}
+{% block page_title %}Résultats : {{ dm.titre }}{% endblock %}
+{% block page_subtitle %}Soumis le {{ soumission.date_soumission|replace('T', ' à ') }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin-bottom: 40px;">
+
+    <div style="text-align: center; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
+        <h2 style="font-size: 18px; color: var(--muted); margin-bottom: 8px;">Votre Note Finale</h2>
+        <div style="font-size: 48px; font-weight: bold; color: {% if soumission.note >= 10 %}#1e8e3e{% else %}#d93025{% endif %};">
+            {{ soumission.note }} / 20
+        </div>
+    </div>
+
+    <h3 style="margin-bottom: 24px; font-size: 18px;">Détail de la correction</h3>
+
+    {% for res in resultats %}
+    <div style="margin-bottom: 24px; padding: 20px; border-radius: 8px; border: 1px solid {% if res.correct %}#a8dab5{% else %}#f5c2c7{% endif %}; background-color: {% if res.correct %}#f6fdf8{% else %}#fdf8f8{% endif %};">
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <h4 style="font-size: 15px; margin: 0;">Question {{ res.question.ordre }}</h4>
+            {% if res.correct %}
+                <span class="pill" style="background: #e6f4ea; color: #1e8e3e; border-color: #e6f4ea; margin: 0;">✅ Correct</span>
+            {% else %}
+                <span class="pill" style="background: #fce8e6; color: #d93025; border-color: #fce8e6; margin: 0;">❌ Incorrect</span>
+            {% endif %}
+        </div>
+        
+        <p style="margin-bottom: 16px; font-size: 14px; font-weight: 500;">{{ res.question.texte }}</p>
+
+        <div style="font-size: 14px; margin-bottom: 8px;">
+            <span style="color: var(--muted);">Votre réponse :</span> 
+            <strong style="color: {% if res.correct %}#1e8e3e{% else %}#d93025{% endif %};">
+                {{ res.reponse if res.reponse else '(Aucune réponse)' }}
+            </strong>
+        </div>
+
+        {% if not res.correct %}
+        <div style="font-size: 14px;">
+            <span style="color: var(--muted);">Bonne réponse :</span> 
+            <strong style="color: #1e8e3e;">{{ res.question.reponse_correcte }}</strong>
+        </div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+
+    <div style="margin-top: 32px;">
+        <a href="{{ url_for('etudiant_dm_liste') }}" class="btn btn-primary" style="text-decoration: none; padding: 10px 20px;">
+            Retour aux Devoirs Maison
+        </a>
+    </div>
+</div>
+{% endblock %}

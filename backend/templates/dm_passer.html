@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Passer le DM{% endblock %}
+{% block page_title %}{{ dm.titre }}{% endblock %}
+{% block page_subtitle %}{{ dm.matiere }} — Fin le {{ dm.date_fin|replace('T', ' à ') }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px;">
+    
+    <form method="POST" action="{{ url_for('etudiant_dm_passer', dm_id=dm.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        {% for q in questions %}
+        <div style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
+            <h4 style="margin-bottom: 12px;">Question {{ q.ordre }}</h4>
+            <p style="margin-bottom: 16px; font-size: 14px;">{{ q.texte }}</p>
+
+            {% if q.type_question == 'qcm' %}
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                {% for option in q.options_parsed %}
+                    <label style="font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="reponse_{{ q.id }}" value="{{ option }}" 
+                               {% if reponses_dict.get(q.id) == option %}checked{% endif %}>
+                        {{ option }}
+                    </label>
+                {% endfor %}
+                </div>
+            {% else %}
+                <input type="text" name="reponse_{{ q.id }}" value="{{ reponses_dict.get(q.id, '') }}" 
+                       placeholder="Votre réponse..." 
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit;">
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div style="display: flex; gap: 16px; margin-top: 24px;">
+            <button type="submit" name="action" value="sauvegarder" class="btn btn-outline" style="padding: 10px 20px;">
+                💾 Sauvegarder le brouillon
+            </button>
+            <button type="submit" name="action" value="soumettre" class="btn btn-primary" style="padding: 10px 20px;" 
+                    onclick="return confirm('Êtes-vous sûr de vouloir soumettre définitivement ce DM ?');">
+                ✅ Terminer et Soumettre
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

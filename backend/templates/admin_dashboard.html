@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Admin{% endblock %}
+{% block page_title %}Tableau de Bord Administrateur{% endblock %}
+
+{% block content %}
+<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px;">
+    <div class="card" style="padding:20px; text-align:center;">
+        <div style="font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Étudiants</div>
+        <div style="font-size:32px; font-weight:bold; color:var(--ink);">{{ stats.total_etudiants }}</div>
+    </div>
+    <div class="card" style="padding:20px; text-align:center;">
+        <div style="font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Professeurs</div>
+        <div style="font-size:32px; font-weight:bold; color:var(--ink);">{{ stats.total_professeurs }}</div>
+    </div>
+    <div class="card" style="padding:20px; text-align:center;">
+        <div style="font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Classes</div>
+        <div style="font-size:32px; font-weight:bold; color:var(--ink);">{{ stats.total_classes }}</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+    <a href="{{ url_for('admin_classes') }}" class="card" style="padding:30px; text-decoration:none; text-align:center; transition:0.2s;">
+        <h3 style="color:#1e8e3e;">📁 Gérer les Classes</h3>
+        <p style="color:var(--muted); font-size:13px;">Créer et organiser les sections d'enseignement.</p>
+    </a>
+    <a href="{{ url_for('admin_users') }}" class="card" style="padding:30px; text-decoration:none; text-align:center; transition:0.2s;">
+        <h3 style="color:#1a73e8;">👥 Gérer les Comptes</h3>
+        <p style="color:var(--muted); font-size:13px;">Créer des accès pour profs, élèves et admins.</p>
+    </a>
+</div>
+{% endblock %}

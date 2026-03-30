@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel Étudiant{% endblock %}
+
+{% block page_title %}Mon Espace Étudiant{% endblock %}
+{% block page_subtitle %}Bienvenue sur votre tableau de bord personnel, {{ current_user.email.split('@')[0] }}.{% endblock %}
+
+{% block content %}
+<div style="display: flex; gap: 24px; flex-wrap: wrap;">
+
+    <div class="card" style="flex: 1; min-width: 300px;">
+        <div class="card-head">
+            <div class="card-title">Mes Dernières Notes</div>
+            <span class="badge">{{ current_user.notes|length }} notes</span>
+        </div>
+        
+        {% if current_user.notes %}
+            <ul style="list-style: none; padding: 0;">
+            {% for note in current_user.notes %}
+                <li style="padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
+                    <span><strong>{{ note.matiere }}</strong> (Coef {{ note.coefficient }})</span>
+                    <span class="pill active">{{ note.valeur }} / 20</span>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: var(--muted); font-size: 13px;">Aucune note disponible pour le moment.</p>
+        {% endif %}
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 300px;">
+        <div class="card-head">
+            <div class="card-title">Mes Absences</div>
+            <span class="badge">{{ current_user.absences|length }} absences</span>
+        </div>
+        
+        {% if current_user.absences %}
+            <ul style="list-style: none; padding: 0;">
+            {% for absence in current_user.absences %}
+                <li style="padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
+                    <span>{{ absence.date_absence }} - <em>{{ absence.motif }}</em></span>
+                    {% if absence.justifiee %}
+                        <span class="pill active" style="background: #4CAF50; border-color: #4CAF50;">Justifiée</span>
+                    {% else %}
+                        <span class="pill" style="color: red; border-color: red;">Non Justifiée</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: var(--muted); font-size: 13px;">Aucune absence enregistrée.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

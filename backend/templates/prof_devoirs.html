@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Agenda des Devoirs{% endblock %}
+{% block page_title %}Agenda des Devoirs{% endblock %}
+{% block page_subtitle %}Planifiez les exercices pour vos classes.{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+    
+    <div class="card" style="align-self: start;">
+        <h3 style="margin-top: 0; font-size: 16px;">Donner un travail</h3>
+        <form action="{{ url_for('prof_add_devoir') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Titre du devoir</label>
+                <input type="text" name="titre" required placeholder="Ex: Exercices de grammaire" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Matière</label>
+                <input type="text" name="matiere" required placeholder="Ex: Français" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Classe concernée</label>
+                <select name="classe_id" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                    {% for classe in classes %}
+                        <option value="{{ classe.id }}">{{ classe.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">À rendre pour le</label>
+                <input type="date" name="date_remise" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Description / Consignes</label>
+                <textarea name="description" rows="3" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); resize: none;" placeholder="Ex: Faire les exercices 1 à 5 page 42..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-success" style="width: 100%; background: #1e8e3e; color: white; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                Publier le devoir
+            </button>
+        </form>
+    </div>
+    
+    <div class="card">
+        <div class="card-head">
+            <span class="card-title">Travaux en cours</span>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="font-size: 10px; color: #aaa; text-transform: uppercase; border-bottom: 1px solid #efefef;">
+                    <th style="padding: 12px; text-align: left;">Échéance</th>
+                    <th style="padding: 12px; text-align: left;">Devoir</th>
+                    <th style="padding: 12px; text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in devoirs %}
+                <tr style="border-bottom: 1px solid #efefef;">
+                    <td style="padding: 12px; font-size: 13px; color: #dc3545; font-weight: 500;">
+                        {{ d.date_remise }}
+                    </td>
+                    <td style="padding: 12px;">
+                        <strong style="font-size: 14px;">{{ d.titre }}</strong><br>
+                        <small style="color: var(--muted);">{{ d.matiere }}</small>
+                    </td>
+                    <td style="padding: 12px; text-align: right;">
+                        <form action="{{ url_for('prof_delete_devoir', id=d.id) }}" method="POST" onsubmit="return confirm('Supprimer ce devoir ?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px;">&times;</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="padding: 30px; text-align: center; color: var(--muted);">Aucun devoir planifié.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
