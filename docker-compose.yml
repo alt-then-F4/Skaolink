@@ -7,7 +7,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - static_files:/app/static:ro
+      - ./backend/static:/app/static:ro
     depends_on:
       flask_app:
         condition: service_healthy
@@ -35,7 +35,8 @@ services:
     networks:
       - skaolink_net
     volumes:
-      - static_files:/app/static
+      - ./backend/templates:/app/templates
+      - ./backend/static:/app/static
 
   mysql_db:
     image: mysql:8.0
