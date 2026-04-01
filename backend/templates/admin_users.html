@@ -1,23 +1,164 @@
 {% extends "base.html" %}
+
+{% block title %}Gérer les Comptes{% endblock %}
+{% block page_title %}Gestion des Comptes{% endblock %}
+{% block page_subtitle %}Créez, modifiez ou supprimez les utilisateurs du système.{% endblock %}
+
 {% block content %}
 <div class="card" style="margin-bottom:20px;">
     <h3 style="margin-top:0;">Créer un utilisateur</h3>
     <form action="{{ url_for('admin_users') }}" method="POST" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="email" name="email" placeholder="Email" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-        <input type="password" name="password" placeholder="Mot de passe" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-        <select name="role" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-            <option value="[ETUDIANT]">🎓 Étudiant</option>
-            <option value="[PROF]">👨‍🏫 Professeur</option>
+        <input type="email" name="email" placeholder="Email" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
+        <input type="password" name="password" placeholder="Mot de passe" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
+        
+        <select name="role" id="roleSelect" required onchange="toggleClasses('create')" style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
+            <option value="[ETUDIANT]">🎓 Étudiant (1 classe)</option>
+            <option value="[PROF]">👨‍🏫 Professeur (Multi-classes)</option>
             <option value="[ADMIN]">🔑 Administrateur</option>
         </select>
-        <select name="classe_id" style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-            <option value="">Aucune classe (Prof/Admin)</option>
+        
+        <select name="classe_id" id="classeEtudiantCreate" style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
+            <option value="">Sélectionner une classe</option>
             {% for c in classes %}
                 <option value="{{ c.id }}">{{ c.nom }}</option>
             {% endfor %}
         </select>
+
+        <select name="classes_prof" id="classesProfCreate" multiple style="display:none; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink); height:80px;">
+            {% for c in classes %}
+                <option value="{{ c.id }}">{{ c.nom }}</option>
+            {% endfor %}
+        </select>
+
         <button type="submit" class="btn btn-success" style="grid-column: span 2; background:#1a73e8; color:white; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold;">Enregistrer le compte</button>
+
+
     </form>
 </div>
+
+<div class="card">
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; text-transform: uppercase;">
+                <th style="padding: 15px;">Email</th>
+                <th style="padding: 15px;">Rôle</th>
+                <th style="padding: 15px;">Classe</th>
+                <th style="padding: 15px; text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in utilisateurs %}
+            <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 15px; font-weight: 500;">{{ u.email }}</td>
+                <td style="padding: 15px;">
+                    {% if u.role == '[ADMIN]' %}<span class="pill" style="background:#fce8e6; color:#1a73e8; border-color:#1a73e8;">Admin</span>
+                    {% elif u.role == '[PROF]' %}<span class="pill" style="background:#e8f5e9; color:#1e8e3e; border-color:#1e8e3e;">Prof</span>
+                    {% else %}<span class="pill" style="background:var(--soft); color:var(--ink);">Étudiant</span>{% endif %}
+                </td>
+                <td style="padding: 15px; font-size: 13px; color: var(--muted);">{{ u.classe.nom if u.classe else '-' }}</td>
+                <td style="padding: 15px; text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
+                    
+                    <button type="button" class="pill btn-outline" onclick="openEditModal({{ u.id }}, '{{ u.email }}', '{{ u.role }}', '{{ u.classe_id or '' }}')" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">Modifier</button>
+                    
+                    {% if u.id != current_user.id %}
+                    <form action="{{ url_for('admin_delete_user', id=u.id) }}" method="POST" onsubmit="return confirm('Voulez-vous vraiment supprimer cet utilisateur ?');" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="pill" style="cursor: pointer; background: transparent; color: #dc3545; border-color: #dc3545;">Supprimer</button>
+                    </form>
+                    {% endif %}
+
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="editModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div class="card" style="background: var(--bg); width: 100%; max-width: 400px; padding: 24px; position: relative;">
+        <h3 style="margin-top: 0;">Modifier l'utilisateur</h3>
+        <form id="editForm" method="POST" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Email</label>
+                <input type="email" name="email" id="editEmail" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+                <input type="password" name="password" placeholder="***" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Rôle</label>
+                    <select name="role" id="editRole" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+                        <option value="[ETUDIANT]">Étudiant</option>
+                        <option value="[PROF]">Professeur</option>
+                        <option value="[ADMIN]">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Classe</label>
+                    <select name="classe_id" id="editClasse" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+                        <option value="">Aucune</option>
+                        {% for c in classes %}
+                            <option value="{{ c.id }}">{{ c.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn" onclick="closeEditModal()" style="padding: 10px 15px; background: var(--soft); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Annuler</button>
+                <button type="submit" class="btn btn-success" style="padding: 10px 15px; background: #1a73e8; color: white; border: none; border-radius: 6px; cursor: pointer;">Mettre à jour</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const overlay = document.getElementById('editModalOverlay');
+    
+    function openEditModal(id, email, role, classeId) {
+        document.getElementById('editForm').action = '/admin/users/edit/' + id;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('editRole').value = role;
+        document.getElementById('editClasse').value = classeId;
+        overlay.style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        overlay.style.display = 'none';
+    }
+
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            closeEditModal();
+        }
+    });
+</script>
+<script>
+    function toggleClasses(type) {
+        const role = type === 'create' ? document.getElementById('roleSelect').value : document.getElementById('editRole').value;
+        const selectEtudiant = type === 'create' ? document.getElementById('classeEtudiantCreate') : document.getElementById('editClasse');
+        const selectProf = type === 'create' ? document.getElementById('classesProfCreate') : document.getElementById('editClassesProf');
+        
+        if (role === '[ETUDIANT]') {
+            selectEtudiant.style.display = 'block';
+            selectProf.style.display = 'none';
+        } else if (role === '[PROF]') {
+            selectEtudiant.style.display = 'none';
+            selectProf.style.display = 'block';
+        } else { // ADMIN
+            selectEtudiant.style.display = 'none';
+            selectProf.style.display = 'none';
+        }
+    }
+    // Lancer au démarrage pour le premier formulaire
+    toggleClasses('create');
+</script>
+
 {% endblock %}

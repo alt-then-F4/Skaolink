@@ -250,6 +250,14 @@ class ChatMessage(db.Model):
         }
 
 
+
+
+# --- NOUVELLE TABLE DE LIAISON PROF <-> CLASSES ---
+prof_classes = db.Table('prof_classes',
+    db.Column('prof_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('classe_id', db.Integer, db.ForeignKey('classes.id'), primary_key=True)
+)
+
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -260,6 +268,8 @@ class User(db.Model, UserMixin):
     
     # Relations pour faciliter les requêtes
     notes = db.relationship('Note', backref='etudiant', lazy=True)
+
+    classes_enseignees = db.relationship('Classe', secondary=prof_classes, backref=db.backref('professeurs', lazy='dynamic'))
 
 # --- ROUTES ---
 
@@ -1139,9 +1149,14 @@ def prof_dm_create():
 @login_required
 @role_required('[PROF]', '[ADMIN]')
 def prof_classes():
-    # On récupère toutes les classes disponibles
-    classes = Classe.query.all()
+    # Un admin voit tout, un prof ne voit que ses propres classes
+    if current_user.role == '[ADMIN]':
+        classes = Classe.query.all()
+    else:
+        classes = current_user.classes_enseignees
+        
     return render_template('prof_classes.html', classes=classes)
+
 
 @app.route('/prof/classes/<int:id>')
 @login_required
@@ -1363,29 +1378,93 @@ def admin_users():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        role = request.form.get('role') # [ADMIN], [PROF], ou [ETUDIANT] [cite: 93]
+        role = request.form.get('role')
         classe_id = request.form.get('classe_id')
+        classes_prof_ids = request.form.getlist('classes_prof')
 
-        # Sécurité : Hachage du mot de passe avec Bcrypt 
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
-        
-        nouvel_id_classe = int(classe_id) if classe_id and role == '[ETUDIANT]' else None
-
         nouvel_utilisateur = User(
             email=email, 
             password_hash=hashed_pw, 
             role=role, 
-            classe_id=nouvel_id_classe
+            classe_id=int(classe_id) if classe_id and role == '[ETUDIANT]' else None
         )
+
+        # --- ÉTAPE CRUCIALE : AJOUT AU CHAT GLOBAL ---
+        # On récupère le groupe d'entraide créé lors de l'init-db
+        conv_globale = Conversation.query.filter_by(nom='Skaolink Chat - Entraide').first()
+        if conv_globale:
+            conv_globale.users.append(nouvel_utilisateur)
+        # ---------------------------------------------
+
+        if role == '[PROF]' and classes_prof_ids:
+            classes_assignees = Classe.query.filter(Classe.id.in_(classes_prof_ids)).all()
+            nouvel_utilisateur.classes_enseignees.extend(classes_assignees)
+
         db.session.add(nouvel_utilisateur)
         db.session.commit()
-        flash(f"Compte {email} créé !")
+        flash(f"Compte {email} créé et ajouté à la messagerie globale !")
         return redirect(url_for('admin_users'))
 
     utilisateurs = User.query.all()
     classes = Classe.query.all()
     return render_template('admin_users.html', utilisateurs=utilisateurs, classes=classes)
 
+
+@app.route('/admin/users/edit/<int:id>', methods=['POST'])
+@login_required
+@role_required('[ADMIN]')
+def admin_edit_user(id):
+    user = User.query.get_or_404(id)
+    
+    email = request.form.get('email')
+    role = request.form.get('role')
+    classe_id = request.form.get('classe_id')
+    password = request.form.get('password')
+    classes_prof_ids = request.form.getlist('classes_prof') # NOUVEAU
+
+    if email: user.email = email
+    if role: user.role = role
+    
+    # Gestion Etudiant
+    if role == '[ETUDIANT]':
+        user.classe_id = int(classe_id) if classe_id else None
+        user.classes_enseignees = [] # On vide les classes profs au cas où
+        
+    # Gestion Prof
+    elif role == '[PROF]':
+        user.classe_id = None
+        if classes_prof_ids:
+            user.classes_enseignees = Classe.query.filter(Classe.id.in_(classes_prof_ids)).all()
+        else:
+            user.classes_enseignees = []
+
+    if password:
+        user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    db.session.commit()
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/users/delete/<int:id>', methods=['POST'])
+@login_required
+@role_required('[ADMIN]')
+def admin_delete_user(id):
+    user = User.query.get_or_404(id)
+    
+    # Protection : l'admin ne peut pas supprimer son propre compte
+    if user.id == current_user.id:
+        return redirect(url_for('admin_users'))
+        
+    try:
+        db.session.delete(user)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # En cas d'erreur (si l'étudiant a déjà des notes liées, la DB bloque par sécurité)
+        pass
+        
+    return redirect(url_for('admin_users'))
 
 @app.route('/logout')
 @login_required
