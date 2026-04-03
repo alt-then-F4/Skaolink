@@ -5,49 +5,49 @@
 {% block page_subtitle %}Gérez les devoirs et évaluations à distance.{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 20px; text-align: right;">
-    <a href="{{ url_for('prof_dm_create') }}" class="btn btn-success" style="background: #1e8e3e; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+<div style="margin-bottom: 24px; text-align: right;">
+    <a href="{{ url_for('prof_dm_create') }}" style="display: inline-block; padding: 10px 16px; font-family: inherit; font-size: 13px; font-weight: 500; background: var(--ink); color: var(--bg); border: 1px solid var(--ink); border-radius: 6px; cursor: pointer; text-decoration: none; transition: opacity .15s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
         + Créer un nouveau DM
     </a>
 </div>
 
-<div class="card">
-    <div class="card-head">
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="card-head" style="padding: 24px 24px 0 24px; margin-bottom: 16px;">
         <span class="card-title">Historique de vos DM</span>
-        <span class="card-meta">{{ dms|length }} DM(s)</span>
+        <span class="badge">{{ dms|length }} DM(s)</span>
     </div>
     
     {% if dms %}
-    <table style="width:100%; border-collapse:collapse;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
         <thead>
-            <tr style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid #efefef;">
-                <th style="padding:8px 12px; text-align:left;">Titre & Matière</th>
-                <th style="padding:8px 12px; text-align:left;">Classe</th>
-                <th style="padding:8px 12px; text-align:left;">Dates</th>
-                <th style="padding:8px 12px; text-align:right;">Questions</th>
+            <tr style="border-bottom: 1px solid var(--border); background: var(--soft);">
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500;">Titre & Matière</th>
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500;">Classe</th>
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500;">Dates (Début / Fin)</th>
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500; text-align: right;">Questions</th>
             </tr>
         </thead>
         <tbody>
             {% for dm in dms %}
-            <tr style="border-bottom:1px solid #efefef;">
-                <td style="padding:15px 12px;">
-                    <strong style="font-size: 14px; color: var(--ink);">{{ dm.titre }}</strong><br>
-                    <small style="color: var(--muted);">{{ dm.matiere }}</small>
+            <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 16px 24px;">
+                    <strong style="font-size: 14px; font-weight: 500; color: var(--ink); display: block; margin-bottom: 4px;">{{ dm.titre }}</strong>
+                    <small style="color: var(--muted); font-size: 12px;">{{ dm.matiere }}</small>
                 </td>
-                <td style="padding:15px 12px; font-size: 13px;">{{ dm.classe_associee.nom if dm.classe_associee else 'Toutes' }}</td>
-                <td style="padding:15px 12px; font-size: 12px; color: var(--muted);">
-                    Du : {{ dm.date_debut.replace('T', ' à ') }}<br>
-                    Au : {{ dm.date_fin.replace('T', ' à ') }}
+                <td style="padding: 16px 24px; font-size: 13px; color: var(--muted);">{{ dm.classe_associee.nom if dm.classe_associee else 'Toutes classes' }}</td>
+                <td style="padding: 16px 24px; font-size: 12px; color: var(--muted);">
+                    <div style="margin-bottom: 4px;">Du: {{ dm.date_debut.replace('T', ' à ') }}</div>
+                    <div>Au: {{ dm.date_fin.replace('T', ' à ') }}</div>
                 </td>
-                <td style="padding:15px 12px; text-align:right;">
-                    <span class="pill" style="background: var(--soft);">{{ dm.questions|length }}</span>
+                <td style="padding: 16px 24px; text-align: right;">
+                    <span class="badge">{{ dm.questions|length }}</span>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p style="padding: 20px; text-align: center; color:#aaa; font-size:14px;">Vous n'avez pas encore créé de Devoir Maison.</p>
+    <p style="padding: 30px; text-align: center; color: var(--muted); font-size: 13px;">Vous n'avez pas encore créé de Devoir Maison.</p>
     {% endif %}
 </div>
 {% endblock %}
