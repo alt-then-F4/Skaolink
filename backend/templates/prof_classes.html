@@ -5,24 +5,24 @@
 {% block page_subtitle %}Sélectionnez une classe pour consulter la liste des élèves.{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+<div style="display: flex; gap: 24px; flex-wrap: wrap;">
     {% for classe in classes %}
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="card" style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: space-between;">
         <div class="card-head">
-            <span class="card-title" style="font-size: 18px; font-weight: 600;">Classe {{ classe.nom }}</span>
-            <span class="pill" style="background: var(--ink); color: var(--bg);">{{ classe.etudiants|selectattr('role', 'equalto', '[ETUDIANT]')|list|length }} élèves</span>
+            <span class="card-title" style="font-size: 15px; font-weight: 500;">Classe {{ classe.nom }}</span>
+            <span class="badge" style="background: var(--ink); color: var(--bg); border: none;">{{ classe.etudiants|selectattr('role', 'equalto', '[ETUDIANT]')|list|length }} élèves</span>
         </div>
         
         <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
             Gérez les notes, les absences et l'assiduité des élèves de cette classe.
         </p>
         
-        <a href="{{ url_for('prof_classe_detail', id=classe.id) }}" class="btn btn-outline" style="text-align: center; display: block; text-decoration: none; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-weight: 500;">
+        <a href="{{ url_for('prof_classe_detail', id=classe.id) }}" style="display: block; text-align: center; width: 100%; padding: 10px 12px; font-family: inherit; font-size: 14px; font-weight: 500; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-decoration: none; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--ink)'" onmouseout="this.style.borderColor='var(--border)'">
             Ouvrir la classe
         </a>
     </div>
     {% else %}
-    <p style="color: var(--muted);">Aucune classe n'est disponible pour le moment.</p>
+    <p style="color: var(--muted); font-size: 13px;">Aucune classe n'est disponible pour le moment.</p>
     {% endfor %}
 </div>
 {% endblock %}
