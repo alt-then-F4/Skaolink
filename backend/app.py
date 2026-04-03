@@ -64,7 +64,7 @@ limiter = Limiter(
     get_remote_address,
     app=app,
     storage_uri=redis_uri,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["2000 per day", "1000 per hour"]
 )
 
 # --- CONFIGURATION LOGIN ---

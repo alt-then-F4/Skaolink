@@ -1,23 +1,464 @@
 {% extends "base.html" %}
+{% block title %}Gestion des Comptes{% endblock %}
+{% block page_title %}Gérer les Comptes{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-bottom:20px;">
-    <h3 style="margin-top:0;">Créer un utilisateur</h3>
-    <form action="{{ url_for('admin_users') }}" method="POST" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+<style>
+    .admin-form-card {
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        margin-bottom: 28px;
+        transition: box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .admin-form-card:hover {
+        border-color: #d9d9d9;
+    }
+
+    .admin-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 18px;
+    }
+
+    .admin-input {
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        font-size: 14px;
+    }
+
+    /* Bouton principal : mode clair -> fond noir uni, texte clair, sans dégradé ni ombre */
+    .admin-submit-btn {
+        grid-column: span 2;
+        padding: 14px;
+        border-radius: 10px;
+
+        background: #000;
+        color: var(--bg);
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.06);
+        cursor: pointer;
+        letter-spacing: -0.01em;
+        box-shadow: none;
+        transition:
+            background .12s ease,
+            transform .12s ease,
+            border-color .12s ease,
+            color .12s ease;
+    }
+
+    .admin-submit-btn:hover {
+        background: #0d0d0d;
+        transform: translateY(-2px);
+        border-color: rgba(255,255,255,0.08);
+    }
+
+    .admin-submit-btn:active {
+        transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+        .admin-form-grid {
+            grid-template-columns: 1fr;
+        }
+        .admin-submit-btn {
+            grid-column: span 1;
+        }
+    }
+
+    /* === Adaptation explicite pour dark-mode activé via la classe html.dark-mode ===
+       Bouton en mode sombre : fond uni (blanc), texte foncé, sans dégradé ni ombre */
+    html.dark-mode .admin-submit-btn {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #e6e6e6 !important;
+        box-shadow: none !important;
+    }
+
+    /* Hover en dark-mode : léger éclaircissement, sans dégradé */
+    html.dark-mode .admin-submit-btn:hover {
+        background: #f5f5f5 !important;
+        transform: translateY(-2px);
+        border-color: #e0e0e0 !important;
+    }
+
+    /* Active / pressed en dark-mode */
+    html.dark-mode .admin-submit-btn:active {
+        transform: translateY(0);
+    }
+.custom-select {
+  position: relative;
+  user-select: none;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--muted);
+  transition: border-color .15s;
+}
+
+.custom-select.open .custom-select-trigger,
+.custom-select-trigger:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.custom-select-icon { display: flex; color: var(--muted); }
+.custom-select-text { flex: 1; }
+.custom-select-arrow { margin-left: auto; transition: transform .2s; color: var(--muted); }
+.custom-select.open .custom-select-arrow { transform: rotate(180deg); }
+
+.custom-select-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.custom-select.open .custom-select-dropdown { display: block; }
+
+.custom-select-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+
+.custom-select-option:hover { background: var(--soft); color: var(--ink); }
+.custom-select-option.selected { color: var(--ink); font-weight: 500; }
+.custom-select-option svg { flex-shrink: 0; }
+
+/* Styles pour la table des utilisateurs */
+.users-table-container {
+    overflow-x: auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-top: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+.users-table th {
+    padding: 16px 20px;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--soft);
+    border-bottom: 1px solid var(--border);
+}
+
+.users-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink);
+    vertical-align: middle;
+}
+
+.users-table tr:last-child td {
+    border-bottom: none;
+}
+
+.users-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.users-table tbody tr:hover {
+    background-color: var(--soft);
+}
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+html.dark-mode .user-avatar,
+html.dark-mode td .user-avatar {
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+}
+
+.role-badge.admin {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+}
+
+html.dark-mode .role-badge.admin,
+html.dark-mode td .role-badge.admin,
+html.dark-mode td .role-badge.admin * {
+    background: #ffffff !important;
+    border-color: #ffffff !important;
+    color: #000000 !important;
+    stroke: #000000 !important;
+}
+
+.role-badge.prof {
+    color: var(--ink);
+}
+
+.role-badge.etudiant {
+    color: var(--ink);
+}
+
+</style>
+
+<div class="admin-form-card">
+    <h3 style="margin-top:0; font-size:18px; font-weight:600; color:var(--ink);">
+        Créer un utilisateur
+    </h3>
+
+    <form action="{{ url_for('admin_users') }}" method="POST" class="admin-form-grid">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="email" name="email" placeholder="Email" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-        <input type="password" name="password" placeholder="Mot de passe" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-        <select name="role" required style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-            <option value="[ETUDIANT]">🎓 Étudiant</option>
-            <option value="[PROF]">👨‍🏫 Professeur</option>
-            <option value="[ADMIN]">🔑 Administrateur</option>
-        </select>
-        <select name="classe_id" style="padding:10px; border-radius:8px; border:1px solid var(--border);">
-            <option value="">Aucune classe (Prof/Admin)</option>
-            {% for c in classes %}
-                <option value="{{ c.id }}">{{ c.nom }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-success" style="grid-column: span 2; background:#1a73e8; color:white; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold;">Enregistrer le compte</button>
+
+        <input type="email" name="email" placeholder="Email" required class="admin-input">
+
+        <input type="password" name="password" placeholder="Mot de passe" required class="admin-input">
+
+        <!-- Champ caché qui sera soumis avec le formulaire -->
+<input type="hidden" name="role" id="roleValue" required>
+
+<div class="custom-select" id="roleSelect">
+  <div class="custom-select-trigger">
+    <span class="custom-select-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      </svg>
+    </span>
+    <span class="custom-select-text">Choisir un rôle</span>
+    <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </div>
+
+  <div class="custom-select-dropdown">
+    <div class="custom-select-option" data-value="[ETUDIANT]">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+      </svg>
+      Étudiant
+    </div>
+    <div class="custom-select-option" data-value="[PROF]">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Professeur
+    </div>
+    <div class="custom-select-option" data-value="[ADMIN]">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Administrateur
+    </div>
+  </div>
+</div>
+
+        <input type="hidden" name="classe_id" id="classeValue" value="">
+
+<div class="custom-select" id="classeSelect">
+  <div class="custom-select-trigger">
+    <span class="custom-select-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+    </span>
+    <span class="custom-select-text">Aucune classe (Prof/Admin)</span>
+    <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </div>
+
+  <div class="custom-select-dropdown">
+    <div class="custom-select-option selected" data-value="">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+      </svg>
+      Aucune classe (Prof/Admin)
+    </div>
+    {% for c in classes %}
+    <div class="custom-select-option" data-value="{{ c.id }}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      </svg>
+      {{ c.nom }}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+        <button type="submit" class="admin-submit-btn">
+            Enregistrer le compte
+        </button>
     </form>
 </div>
+
+<h3 style="margin-top:40px; font-size:18px; font-weight:600; color:var(--ink);">
+    Comptes existants
+</h3>
+<div class="users-table-container">
+    <table class="users-table">
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>Classe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in utilisateurs %}
+            <tr>
+                <td>
+                    <div class="user-cell">
+                        <div class="user-avatar">{{ u.email[0]|upper }}</div>
+                        <span style="font-weight: 500;">{{ u.email }}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="role-badge {% if u.role == '[ADMIN]' %}admin{% elif u.role == '[PROF]' %}prof{% else %}etudiant{% endif %}">
+                        {% if u.role == '[ADMIN]' %}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                            Admin
+                        {% elif u.role == '[PROF]' %}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            Professeur
+                        {% else %}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                            </svg>
+                            Étudiant
+                        {% endif %}
+                    </span>
+                </td>
+                <td>
+                    {% if u.classe %}
+                    <span style="color:var(--ink); font-weight:500; background:var(--soft); padding:4px 8px; border-radius:6px; border:1px solid var(--border); font-size:12px;">{{ u.classe.nom }}</span>
+                    {% else %}
+                    <span style="color:var(--muted); font-size:12px;">N/A</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+(function() {
+  const sel = document.getElementById('roleSelect');
+  const hidden = document.getElementById('roleValue');
+  const text = sel.querySelector('.custom-select-text');
+  const icon = sel.querySelector('.custom-select-icon');
+
+  sel.querySelector('.custom-select-trigger').addEventListener('click', () => {
+    sel.classList.toggle('open');
+  });
+
+  sel.querySelectorAll('.custom-select-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      hidden.value = opt.dataset.value;
+      text.textContent = opt.textContent.trim();
+      icon.innerHTML = opt.querySelector('svg').outerHTML;
+      sel.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      sel.classList.remove('open');
+      text.style.color = 'var(--ink)';
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!sel.contains(e.target)) sel.classList.remove('open');
+  });
+})();
+// Dropdown classe
+(function() {
+  const sel = document.getElementById('classeSelect');
+  const hidden = document.getElementById('classeValue');
+  const text = sel.querySelector('.custom-select-text');
+  const icon = sel.querySelector('.custom-select-icon');
+
+  sel.querySelector('.custom-select-trigger').addEventListener('click', () => {
+    sel.classList.toggle('open');
+  });
+
+  sel.querySelectorAll('.custom-select-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      hidden.value = opt.dataset.value;
+      text.textContent = opt.textContent.trim();
+      icon.innerHTML = opt.querySelector('svg').outerHTML;
+      sel.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      sel.classList.remove('open');
+      text.style.color = opt.dataset.value === '' ? '' : 'var(--ink)';
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!sel.contains(e.target)) sel.classList.remove('open');
+  });
+})();
+</script>
 {% endblock %}

@@ -392,6 +392,33 @@
         transition: border-color .15s, color .15s;
         z-index: 100;
       }
+      html {
+        scroll-behavior: smooth;
+        transition: background-color .4s ease, color .4s ease;
+      }
+
+      body {
+        font-family: 'Geist', 'Helvetica Neue', sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        transition: background-color .4s ease, color .4s ease;
+      }
+      input[type="email"],
+      input[type="text"],
+      input[type="password"] {
+        /* ... tes règles existantes ... */
+        transition: border-color .15s, background-color .4s ease, color .4s ease;
+      }
+
+      .feature-card {
+        /* ... tes règles existantes ... */
+        transition: opacity .6s ease, transform .6s ease, border-color .2s, background-color .4s ease;
+      }
+
+      .theme-toggle {
+        /* ... tes règles existantes ... */
+        transition: border-color .15s, color .15s, background-color .4s ease;
+      }
   </style>
   <script>
     if (localStorage.getItem('theme') === 'dark') {

@@ -1,27 +1,196 @@
 {% extends "base.html" %}
+{% block title %}Gestion des Classes{% endblock %}
+{% block page_title %}Gérer les Classes{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-bottom:20px;">
-    <h3 style="margin-top:0;">Créer une nouvelle classe</h3>
-    <form action="{{ url_for('admin_classes') }}" method="POST" style="display:flex; gap:10px;">
+<style>
+    .admin-form-card {
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        margin-bottom: 28px;
+        transition: box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .admin-form-card:hover {
+        border-color: #d9d9d9;
+    }
+
+    .admin-form-grid {
+        display: flex;
+        gap: 18px;
+        margin-top: 18px;
+        align-items: center;
+    }
+
+    .admin-input {
+        flex-grow: 1;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        font-size: 14px;
+        color: var(--ink);
+    }
+
+    .admin-submit-btn {
+        padding: 12px 24px;
+        border-radius: 8px;
+        background: #000;
+        color: var(--bg);
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.06);
+        cursor: pointer;
+        font-size: 14px;
+        box-shadow: none;
+        transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+
+    .admin-submit-btn:hover {
+        background: #0d0d0d;
+        transform: translateY(-2px);
+        border-color: rgba(255,255,255,0.08);
+    }
+
+    .admin-submit-btn:active {
+        transform: translateY(0);
+    }
+
+    html.dark-mode .admin-submit-btn {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #e6e6e6 !important;
+    }
+
+    html.dark-mode .admin-submit-btn:hover {
+        background: #f5f5f5 !important;
+        transform: translateY(-2px);
+        border-color: #e0e0e0 !important;
+    }
+
+    @media (max-width: 768px) {
+        .admin-form-grid {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+    /* Styles pour la table des classes */
+    .classes-table-container {
+        overflow-x: auto;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-top: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+
+    .classes-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 14px;
+    }
+
+    .classes-table th {
+        padding: 16px 20px;
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: var(--soft);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .classes-table td {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        color: var(--ink);
+        vertical-align: middle;
+    }
+
+    .classes-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .classes-table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .classes-table tbody tr:hover {
+        background-color: var(--soft);
+    }
+
+    .class-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--ink);
+        color: var(--bg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    html.dark-mode .class-icon,
+    html.dark-mode td .class-icon,
+    html.dark-mode td .class-icon * {
+        background: #ffffff !important;
+        color: #000000 !important;
+        stroke: #000000 !important;
+    }
+
+    .students-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 600;
+        background: var(--soft);
+        color: var(--ink);
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+    }
+</style>
+
+<div class="admin-form-card">
+    <h3 style="margin-top:0; font-size:18px; font-weight:600; color:var(--ink);">Créer une nouvelle classe</h3>
+    <form action="{{ url_for('admin_classes') }}" method="POST" class="admin-form-grid">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="nom" placeholder="Ex: Terminale S1" required style="flex-grow:1; padding:10px; border-radius:8px; border:1px solid var(--border);">
-        <button type="submit" class="btn btn-success" style="background:#1e8e3e; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Créer</button>
+        <input type="text" name="nom" placeholder="Ex: Terminale S1" required class="admin-input">
+        <button type="submit" class="admin-submit-btn">Créer la classe</button>
     </form>
 </div>
 
-<div class="card">
-    <table style="width:100%; border-collapse:collapse; text-align:left;">
+<h3 style="margin-top:40px; font-size:18px; font-weight:600; color:var(--ink);">Classes existantes</h3>
+<div class="classes-table-container">
+    <table class="classes-table">
         <thead>
-            <tr style="border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase;">
-                <th style="padding:15px;">Nom de la classe</th>
-                <th style="padding:15px; text-align:right;">Nombre d'élèves</th>
+            <tr>
+                <th>Nom de la classe</th>
+                <th style="text-align:right;">Nombre d'élèves</th>
             </tr>
         </thead>
         <tbody>
             {% for classe in classes %}
-            <tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:15px; font-weight:500;">{{ classe.nom }}</td>
-                <td style="padding:15px; text-align:right;"><span class="pill">{{ classe.etudiants|length }}</span></td>
+            <tr>
+                <td style="font-weight:500;">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div class="class-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        {{ classe.nom }}
+                    </div>
+                </td>
+                <td style="text-align:right;">
+                    <span class="students-badge">{{ classe.etudiants|length }}</span>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
