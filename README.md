@@ -267,38 +267,7 @@ REDIS_PASSWORD=mot_de_passe_redis
 
 ---
 
-### Étape 6 — Obtenir un certificat TLS (Let's Encrypt)
-
-```bash
-sudo apt install -y certbot
-
-# Le port 80 doit être libre (aucun service en écoute)
-sudo certbot certonly --standalone -d skaolink.fr -d www.skaolink.fr
-```
-
-Les certificats sont générés dans `/etc/letsencrypt/live/skaolink.fr/`. Les copier dans le dossier Nginx du projet :
-
-```bash
-sudo cp /etc/letsencrypt/live/skaolink.fr/fullchain.pem /opt/Skaolink/nginx/certs/skaolink.crt
-sudo cp /etc/letsencrypt/live/skaolink.fr/privkey.pem   /opt/Skaolink/nginx/certs/skaolink.key
-sudo chown $USER:$USER /opt/Skaolink/nginx/certs/*
-```
-
-Renouvellement automatique via cron :
-
-```bash
-sudo crontab -e
-```
-
-Ajouter la ligne suivante :
-
-```
-0 3 * * * certbot renew --quiet && cp /etc/letsencrypt/live/skaolink.fr/fullchain.pem /opt/Skaolink/nginx/certs/skaolink.crt && cp /etc/letsencrypt/live/skaolink.fr/privkey.pem /opt/Skaolink/nginx/certs/skaolink.key && docker compose -f /opt/Skaolink/docker-compose.yml restart nginx
-```
-
----
-
-### Étape 7 — Lancer l'application
+### Étape 6 — Lancer l'application
 
 ```bash
 cd /opt/Skaolink
@@ -326,11 +295,12 @@ skaolink-redis   Up
 | `mysql_db` | ❌ aucun | `:3306` |
 | `redis_broker` | ❌ aucun | `:6379` |
 
-L'application est accessible sur **https://skaolink.fr** (ou votre domaine).
+L'application est accessible sur **<addresse ip de la vm>**.
+Mais avant il faudra se rendre sur ce site **<https://<adresse ip de la vm>/init-db>**
 
 ---
 
-### Étape 8 — Consulter les logs
+### Étape 7 — Consulter les logs
 
 ```bash
 # Tous les services en direct
@@ -343,7 +313,7 @@ docker compose logs -f nginx
 
 ---
 
-### Étape 9 — Mettre à jour l'application
+### Étape 8 — Mettre à jour l'application
 
 Pour déployer une nouvelle version depuis GitHub :
 
