@@ -1,7 +1,7 @@
 import os
 from functools import wraps
 from collections import defaultdict
-from flask import Flask, jsonify, render_template, redirect, url_for, flash, request, abort
+from flask import Flask, jsonify, render_template, redirect, url_for, flash, request, abort, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -14,7 +14,7 @@ from flask_talisman import Talisman
 import json
 from datetime import date
 from datetime import date, datetime
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from collections import defaultdict
 from flask_socketio import SocketIO, emit, join_room
 from werkzeug.utils import secure_filename
@@ -64,7 +64,7 @@ limiter = Limiter(
     get_remote_address,
     app=app,
     storage_uri=redis_uri,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "5 per hour"]
 )
 
 # --- CONFIGURATION LOGIN ---
@@ -1568,11 +1568,104 @@ def init_db():
 
 @app.errorhandler(403)
 def forbidden_error(error):
-    return "<h1>⛔ Erreur 403 - Accès Interdit</h1>", 403
+    return render_template(
+        'error.html',
+        status_code=403,
+        title="Accès interdit",
+        message="Vous n'avez pas les permissions nécessaires pour accéder à cette ressource.",
+        details="Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur."
+    ), 403
+
+@app.errorhandler(400)
+def bad_request_error(error):
+    return render_template(
+        'error.html',
+        status_code=400,
+        title="Requête invalide",
+        message="La requête envoyée n'a pas pu être interprétée correctement.",
+        details="Vérifiez les informations saisies puis réessayez."
+    ), 400
+
+@app.errorhandler(CSRFError)
+def csrf_error(error):
+    return render_template(
+        'error.html',
+        status_code=400,
+        title="Session expirée",
+        message="La vérification de sécurité du formulaire a échoué.",
+        details="Rechargez la page puis renvoyez le formulaire."
+    ), 400
+
+@app.errorhandler(401)
+def unauthorized_error(error):
+    return render_template(
+        'error.html',
+        status_code=401,
+        title="Authentification requise",
+        message="Vous devez être connecté pour continuer.",
+        details="Connectez-vous, puis revenez sur cette page."
+    ), 401
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template(
+        'error.html',
+        status_code=404,
+        title="Page introuvable",
+        message="La ressource demandée n'existe pas ou a été déplacée.",
+        details="Utilisez la navigation pour revenir à une section disponible."
+    ), 404
+
+@app.errorhandler(405)
+def method_not_allowed_error(error):
+    return render_template(
+        'error.html',
+        status_code=405,
+        title="Méthode non autorisée",
+        message="Cette action n'est pas autorisée pour cette ressource.",
+        details="Revenez à l'écran précédent et utilisez le parcours prévu."
+    ), 405
+
 
 @app.errorhandler(429)
 def ratelimit_error(error):
-    return "<h1>⚠️ Erreur 429 - Trop de tentatives</h1>", 429
+    retry_after = getattr(error, 'retry_after', None)
+    try:
+        retry_after_seconds = max(1, int(float(retry_after))) if retry_after is not None else 30
+    except (ValueError, TypeError):
+        retry_after_seconds = 30
+
+    response = make_response(render_template(
+        'error.html',
+        status_code=429,
+        title="Trop de tentatives",
+        message="Vous effectuez des actions trop rapidement.",
+        details="Patientez quelques instants avant de réessayer.",
+        retry_after_seconds=retry_after_seconds
+    ), 429)
+    response.headers['Retry-After'] = str(retry_after_seconds)
+    return response
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template(
+        'error.html',
+        status_code=500,
+        title="Erreur interne",
+        message="Une erreur inattendue est survenue côté serveur.",
+        details="L'équipe technique peut vérifier ce problème si cela persiste."
+    ), 500
+
+@app.errorhandler(503)
+def service_unavailable_error(error):
+    return render_template(
+        'error.html',
+        status_code=503,
+        title="Service temporairement indisponible",
+        message="Le service est momentanément indisponible.",
+        details="Réessayez dans quelques instants."
+    ), 503
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
