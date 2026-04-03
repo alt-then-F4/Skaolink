@@ -1,10 +1,26 @@
 import os
 from functools import wraps
 from collections import defaultdict
-from flask import Flask, jsonify, render_template, redirect, url_for, flash, request, abort
+from flask import (
+    Flask,
+    jsonify,
+    render_template,
+    redirect,
+    url_for,
+    flash,
+    request,
+    abort,
+)
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    login_user,
+    login_required,
+    logout_user,
+    current_user,
+)
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email
@@ -25,176 +41,213 @@ import uuid
 from datetime import datetime
 import sys
 
-
-
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'super_secret_key_pour_le_dev')
+app.config["SECRET_KEY"] = os.environ.get(
+    "FLASK_SECRET_KEY", "super_secret_key_pour_le_dev"
+)
 csrf = CSRFProtect(app)
-talisman = Talisman(app, content_security_policy=None, force_https=False, session_cookie_secure=False)
-redis_password = os.environ.get('REDIS_PASSWORD', 'mot_de_passe_redis_robuste')
+talisman = Talisman(
+    app, content_security_policy=None, force_https=False, session_cookie_secure=False
+)
+redis_password = os.environ.get("REDIS_PASSWORD", "mot_de_passe_redis_robuste")
 redis_uri = f"redis://:{redis_password}@redis_broker:6379/0"
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', message_queue=redis_uri, max_http_buffer_size=10e6)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet",
+    message_queue=redis_uri,
+    max_http_buffer_size=10e6,
+)
+
+
 class NotifNamespace(Namespace):
     def on_connect(self):
         if current_user.is_authenticated:
             join_room(f"user_{current_user.id}")
+
     def on_disconnect(self):
         pass
 
-socketio.on_namespace(NotifNamespace('/notif'))
+
+socketio.on_namespace(NotifNamespace("/notif"))
 
 
-UPLOAD_FOLDER = 'static/uploads/chat' # Chemin relatif au dossier static
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, UPLOAD_FOLDER)
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+UPLOAD_FOLDER = "static/uploads/chat"  # Chemin relatif au dossier static
+app.config["UPLOAD_FOLDER"] = os.path.join(app.root_path, UPLOAD_FOLDER)
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 # --- CONFIGURATION BASE DE DONNÉES ---
-db_user = os.environ.get('MYSQL_USER', 'skaolink_user')
-db_password = os.environ.get('DB_PASSWORD', 'mot_de_passe_app_skaolink')
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{db_user}:{db_password}@mysql_db/skaolink"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db_user = os.environ.get("MYSQL_USER", "skaolink_user")
+db_password = os.environ.get("DB_PASSWORD", "mot_de_passe_app_skaolink")
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    f"mysql+pymysql://{db_user}:{db_password}@mysql_db/skaolink"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 
 # --- CONFIGURATION LIMITER (REDIS) ---
-redis_password = os.environ.get('REDIS_PASSWORD', 'mot_de_passe_redis_robuste')
+redis_password = os.environ.get("REDIS_PASSWORD", "mot_de_passe_redis_robuste")
 redis_uri = f"redis://:{redis_password}@redis_broker:6379/0"
 limiter = Limiter(
     get_remote_address,
     app=app,
     storage_uri=redis_uri,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
 )
 
 # --- CONFIGURATION LOGIN ---
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'
+login_manager.login_view = "login"
 login_manager.login_message = "Veuillez vous connecter pour accéder à cette page."
+
 
 # --- MODÈLES ---
 class Classe(db.Model):
-    __tablename__ = 'classes'
+    __tablename__ = "classes"
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(50), nullable=False)
-    etudiants = db.relationship('User', backref='classe', lazy=True)
-    dms = db.relationship('DM', backref='classe_associee', lazy=True)
+    etudiants = db.relationship("User", backref="classe", lazy=True)
+    dms = db.relationship("DM", backref="classe_associee", lazy=True)
+
 
 class Note(db.Model):
-    __tablename__ = 'notes'
+    __tablename__ = "notes"
     id = db.Column(db.Integer, primary_key=True)
     matiere = db.Column(db.String(50), nullable=False)
     valeur = db.Column(db.Float, nullable=False)
     coefficient = db.Column(db.Integer, default=1)
-    etudiant_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    etudiant_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
 
 class Absence(db.Model):
-    __tablename__ = 'absences'
+    __tablename__ = "absences"
     id = db.Column(db.Integer, primary_key=True)
     date_absence = db.Column(db.String(20), nullable=False)
     motif = db.Column(db.String(100), nullable=True)
     justifiee = db.Column(db.Boolean, default=False)
-    etudiant_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    etudiant_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
 
 class Cours(db.Model):
-    __tablename__ = 'cours'
-    id           = db.Column(db.Integer, primary_key=True)
-    matiere      = db.Column(db.String(50), nullable=False)
-    professeur   = db.Column(db.String(100), nullable=False)
-    salle        = db.Column(db.String(20), nullable=False)
-    jour         = db.Column(db.Integer, nullable=False)
-    heure_debut  = db.Column(db.String(5), nullable=False)
-    heure_fin    = db.Column(db.String(5), nullable=False)
-    classe_id    = db.Column(db.Integer, nullable=True)
+    __tablename__ = "cours"
+    id = db.Column(db.Integer, primary_key=True)
+    matiere = db.Column(db.String(50), nullable=False)
+    professeur = db.Column(db.String(100), nullable=False)
+    salle = db.Column(db.String(20), nullable=False)
+    jour = db.Column(db.Integer, nullable=False)
+    heure_debut = db.Column(db.String(5), nullable=False)
+    heure_fin = db.Column(db.String(5), nullable=False)
+    classe_id = db.Column(db.Integer, nullable=True)
+
 
 class Devoir(db.Model):
-    __tablename__ = 'devoirs'
-    id          = db.Column(db.Integer, primary_key=True)
-    matiere     = db.Column(db.String(50), nullable=False)
-    titre       = db.Column(db.String(200), nullable=False)
+    __tablename__ = "devoirs"
+    id = db.Column(db.Integer, primary_key=True)
+    matiere = db.Column(db.String(50), nullable=False)
+    titre = db.Column(db.String(200), nullable=False)
     description = db.Column(db.String(500), nullable=True)
     date_remise = db.Column(db.String(20), nullable=False)  # format YYYY-MM-DD
-    classe_id   = db.Column(db.Integer, nullable=True)      # pour plus tard
+    classe_id = db.Column(db.Integer, nullable=True)  # pour plus tard
+
 
 class DevoirSuivi(db.Model):
-    __tablename__ = 'devoirs_suivi'
+    __tablename__ = "devoirs_suivi"
     # Clé primaire composée pour garantir qu'un étudiant n'a qu'une entrée par devoir
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
-    devoir_id = db.Column(db.Integer, db.ForeignKey('devoirs.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), primary_key=True)
+    devoir_id = db.Column(db.Integer, db.ForeignKey("devoirs.id"), primary_key=True)
     est_fait = db.Column(db.Boolean, default=False)
+
 
 # ── 1. Imports à ajouter en haut (après les imports existants) ──
 import json
 from datetime import date
- 
+
 # ── 2. Modèles — à ajouter après le modèle Cours ──
- 
+
+
 class DM(db.Model):
-    __tablename__ = 'devoirs_maison'
-    
+    __tablename__ = "devoirs_maison"
+
     # Identifiant unique du devoir
-    id          = db.Column(db.Integer, primary_key=True)
-    
+    id = db.Column(db.Integer, primary_key=True)
+
     # Informations générales
-    titre       = db.Column(db.String(200), nullable=False)
-    matiere     = db.Column(db.String(50), nullable=False)
-    
+    titre = db.Column(db.String(200), nullable=False)
+    matiere = db.Column(db.String(50), nullable=False)
+
     # Gestion du temps (Modifié à 20 caractères pour inclure l'heure : YYYY-MM-DDTHH:MM)
-    date_debut  = db.Column(db.String(20), nullable=False)  
-    date_fin    = db.Column(db.String(20), nullable=False)  
-    
+    date_debut = db.Column(db.String(20), nullable=False)
+    date_fin = db.Column(db.String(20), nullable=False)
+
     # Clés étrangères (Relations avec d'autres tables)
-    prof_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    prof_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     # SÉCURITÉ : On lie le DM à une classe spécifique pour garantir l'isolation des données
-    classe_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True) 
-    
+    classe_id = db.Column(db.Integer, db.ForeignKey("classes.id"), nullable=True)
+
     # Relations SQLAlchemy (Lien avec les questions et les copies rendues)
-    questions   = db.relationship('Question', backref='dm', lazy=True,
-                                  order_by='Question.ordre', cascade='all, delete-orphan')
-    soumissions = db.relationship('Soumission', backref='dm', lazy=True,
-                                  cascade='all, delete-orphan')
+    questions = db.relationship(
+        "Question",
+        backref="dm",
+        lazy=True,
+        order_by="Question.ordre",
+        cascade="all, delete-orphan",
+    )
+    soumissions = db.relationship(
+        "Soumission", backref="dm", lazy=True, cascade="all, delete-orphan"
+    )
+
 
 class Question(db.Model):
-    __tablename__ = 'questions'
-    id               = db.Column(db.Integer, primary_key=True)
-    dm_id            = db.Column(db.Integer, db.ForeignKey('devoirs_maison.id'), nullable=False)
-    ordre            = db.Column(db.Integer, nullable=False)
-    texte            = db.Column(db.Text, nullable=False)
-    type_question    = db.Column(db.String(10), nullable=False)  # 'texte' ou 'qcm'
+    __tablename__ = "questions"
+    id = db.Column(db.Integer, primary_key=True)
+    dm_id = db.Column(db.Integer, db.ForeignKey("devoirs_maison.id"), nullable=False)
+    ordre = db.Column(db.Integer, nullable=False)
+    texte = db.Column(db.Text, nullable=False)
+    type_question = db.Column(db.String(10), nullable=False)  # 'texte' ou 'qcm'
     reponse_correcte = db.Column(db.String(500), nullable=False)
-    options_qcm      = db.Column(db.Text, nullable=True)  # JSON list si QCM
-    reponses         = db.relationship('Reponse', backref='question', lazy=True,
-                                       cascade='all, delete-orphan')
- 
+    options_qcm = db.Column(db.Text, nullable=True)  # JSON list si QCM
+    reponses = db.relationship(
+        "Reponse", backref="question", lazy=True, cascade="all, delete-orphan"
+    )
+
+
 class Soumission(db.Model):
-    __tablename__ = 'soumissions'
-    id             = db.Column(db.Integer, primary_key=True)
-    dm_id          = db.Column(db.Integer, db.ForeignKey('devoirs_maison.id'), nullable=False)
-    etudiant_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    __tablename__ = "soumissions"
+    id = db.Column(db.Integer, primary_key=True)
+    dm_id = db.Column(db.Integer, db.ForeignKey("devoirs_maison.id"), nullable=False)
+    etudiant_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     date_soumission = db.Column(db.String(20), nullable=True)
-    note           = db.Column(db.Float, nullable=True)
-    statut         = db.Column(db.String(15), nullable=False, default='en_cours')
+    note = db.Column(db.Float, nullable=True)
+    statut = db.Column(db.String(15), nullable=False, default="en_cours")
     # statut : 'en_cours' | 'termine'
-    reponses       = db.relationship('Reponse', backref='soumission', lazy=True,
-                                     cascade='all, delete-orphan')
- 
+    reponses = db.relationship(
+        "Reponse", backref="soumission", lazy=True, cascade="all, delete-orphan"
+    )
+
+
 class Reponse(db.Model):
-    __tablename__ = 'reponses'
-    id           = db.Column(db.Integer, primary_key=True)
-    soumission_id = db.Column(db.Integer, db.ForeignKey('soumissions.id'), nullable=False)
-    question_id  = db.Column(db.Integer, db.ForeignKey('questions.id'), nullable=False)
-    valeur       = db.Column(db.Text, nullable=True)  # réponse de l'étudiant
+    __tablename__ = "reponses"
+    id = db.Column(db.Integer, primary_key=True)
+    soumission_id = db.Column(
+        db.Integer, db.ForeignKey("soumissions.id"), nullable=False
+    )
+    question_id = db.Column(db.Integer, db.ForeignKey("questions.id"), nullable=False)
+    valeur = db.Column(db.Text, nullable=True)  # réponse de l'étudiant
 
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
 # --- FORMULAIRES ---
 class LoginForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Mot de passe', validators=[DataRequired()])
-    submit = SubmitField('Se connecter')
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Mot de passe", validators=[DataRequired()])
+    submit = SubmitField("Se connecter")
+
 
 # --- DÉCORATEUR RBAC ---
 def role_required(*roles):
@@ -204,33 +257,52 @@ def role_required(*roles):
             if not current_user.is_authenticated or current_user.role not in roles:
                 abort(403)
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
+
 
 # --- NOUVEAUX MODÈLES MESSAGERIE ---
 
 # Table d'association pour les participants des conversations
-participants = db.Table('participants',
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
-    db.Column('conversation_id', db.Integer, db.ForeignKey('conversations.id'), primary_key=True)
+participants = db.Table(
+    "participants",
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column(
+        "conversation_id",
+        db.Integer,
+        db.ForeignKey("conversations.id"),
+        primary_key=True,
+    ),
 )
 
+
 class Conversation(db.Model):
-    __tablename__ = 'conversations'
+    __tablename__ = "conversations"
     id = db.Column(db.Integer, primary_key=True)
-    nom = db.Column(db.String(100), nullable=True) # Nom si c'est un groupe
+    nom = db.Column(db.String(100), nullable=True)  # Nom si c'est un groupe
     is_group = db.Column(db.Boolean, default=False)
-    
+
     # Relation avec les messages
-    messages = db.relationship('ChatMessage', backref='conversation', lazy=True, cascade="all, delete-orphan")
+    messages = db.relationship(
+        "ChatMessage", backref="conversation", lazy=True, cascade="all, delete-orphan"
+    )
     # Relation avec les participants
-    users = db.relationship('User', secondary=participants, backref=db.backref('conversations', lazy='dynamic'))
+    users = db.relationship(
+        "User",
+        secondary=participants,
+        backref=db.backref("conversations", lazy="dynamic"),
+    )
+
 
 class ChatMessage(db.Model):
-    __tablename__ = 'chat_messages'
+    __tablename__ = "chat_messages"
     id = db.Column(db.Integer, primary_key=True)
-    conversation_id = db.Column(db.Integer, db.ForeignKey('conversations.id'), nullable=False)
-    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    conversation_id = db.Column(
+        db.Integer, db.ForeignKey("conversations.id"), nullable=False
+    )
+    sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     content = db.Column(db.Text, nullable=True)
     image_url = db.Column(db.String(255), nullable=True)
     lu = db.Column(db.Boolean, default=False, nullable=False)
@@ -244,40 +316,47 @@ class ChatMessage(db.Model):
             "content": self.content,
             "image_url": self.image_url,
             "lu": self.lu,
-            "timestamp": self.timestamp.strftime('%H:%M'),
+            "timestamp": self.timestamp.strftime("%H:%M"),
             "conversation_id": self.conversation_id,
-            "sender_email": User.query.get(self.sender_id).email
+            "sender_email": User.query.get(self.sender_id).email,
         }
 
 
-
-
 # --- NOUVELLE TABLE DE LIAISON PROF <-> CLASSES ---
-prof_classes = db.Table('prof_classes',
-    db.Column('prof_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
-    db.Column('classe_id', db.Integer, db.ForeignKey('classes.id'), primary_key=True)
+prof_classes = db.Table(
+    "prof_classes",
+    db.Column("prof_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("classe_id", db.Integer, db.ForeignKey("classes.id"), primary_key=True),
 )
 
+
 class User(db.Model, UserMixin):
-    __tablename__ = 'users'
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    classe_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
-    
-    # Relations pour faciliter les requêtes
-    notes = db.relationship('Note', backref='etudiant', lazy=True)
+    classe_id = db.Column(db.Integer, db.ForeignKey("classes.id"), nullable=True)
 
-    classes_enseignees = db.relationship('Classe', secondary=prof_classes, backref=db.backref('professeurs', lazy='dynamic'))
+    # Relations pour faciliter les requêtes
+    notes = db.relationship("Note", backref="etudiant", lazy=True)
+
+    classes_enseignees = db.relationship(
+        "Classe",
+        secondary=prof_classes,
+        backref=db.backref("professeurs", lazy="dynamic"),
+    )
+
 
 # --- ROUTES ---
 
-@app.route('/')
-def home():
-    return redirect(url_for('login'))
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/")
+def home():
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
 @limiter.limit("50 per minute")
 def login():
     if current_user.is_authenticated:
@@ -290,35 +369,45 @@ def login():
             return redirect_by_role(user.role)
         else:
             flash("Identifiants invalides.")
-    return render_template('login.html', form=form)
+    return render_template("login.html", form=form)
+
 
 def redirect_by_role(role):
-    if role == '[ADMIN]': return redirect(url_for('admin_dashboard'))
-    if role == '[PROF]': return redirect(url_for('prof_dashboard'))
-    if role == '[ETUDIANT]': return redirect(url_for('etudiant_dashboard'))
-    return redirect(url_for('login'))
+    if role == "[ADMIN]":
+        return redirect(url_for("admin_dashboard"))
+    if role == "[PROF]":
+        return redirect(url_for("prof_dashboard"))
+    if role == "[ETUDIANT]":
+        return redirect(url_for("etudiant_dashboard"))
+    return redirect(url_for("login"))
 
-@app.route('/settings')
+
+@app.route("/settings")
 @login_required
 def settings():
-    return render_template('settings.html')
+    return render_template("settings.html")
 
 
-@app.route('/etudiant/dashboard')
+@app.route("/etudiant/dashboard")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_dashboard():
-    return render_template('etudiant.html')
+    return render_template("etudiant.html")
 
-@app.route('/etudiant/notes')
+
+@app.route("/etudiant/notes")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_notes():
     notes = current_user.notes
 
     # ── Moyenne générale ──
     total_coeffs = sum(n.coefficient for n in notes)
-    moyenne = round(sum(n.valeur * n.coefficient for n in notes) / total_coeffs, 2) if total_coeffs > 0 else None
+    moyenne = (
+        round(sum(n.valeur * n.coefficient for n in notes) / total_coeffs, 2)
+        if total_coeffs > 0
+        else None
+    )
 
     # ── Moyenne par matière ──
     moyennes_par_matiere = {}
@@ -333,17 +422,16 @@ def etudiant_notes():
     # ── Données radar ──
     matieres_data = defaultdict(list)
     for n in notes:
-        matieres_data[n.matiere].append({
-            "valeur": float(n.valeur),
-            "coefficient": float(n.coefficient)
-        })
+        matieres_data[n.matiere].append(
+            {"valeur": float(n.valeur), "coefficient": float(n.coefficient)}
+        )
 
-# ── Données évolution ligne ──
+    # ── Données évolution ligne ──
     notes_triees = sorted(notes, key=lambda n: n.id)
     labels, moyennes_etudiant = [], []
     total_pts, total_poids = 0, 0
     for i, n in enumerate(notes_triees, 1):
-        total_pts   += n.valeur * n.coefficient
+        total_pts += n.valeur * n.coefficient
         total_poids += n.coefficient
         labels.append(f"Éval {i}")
         moyennes_etudiant.append(round(total_pts / total_poids, 2))
@@ -360,20 +448,23 @@ def etudiant_notes():
     evolution_data = {
         "labels": labels,
         "etudiant": moyennes_etudiant,
-        "classe": moyennes_classe
+        "classe": moyennes_classe,
     }
 
-    return render_template('notes.html',
-                           moyenne=moyenne,
-                           total_coeffs=total_coeffs,
-                           moyennes_par_matiere=moyennes_par_matiere,
-                           evolution_data=evolution_data,
-                           matieres_data=dict(matieres_data))
+    return render_template(
+        "notes.html",
+        moyenne=moyenne,
+        total_coeffs=total_coeffs,
+        moyennes_par_matiere=moyennes_par_matiere,
+        evolution_data=evolution_data,
+        matieres_data=dict(matieres_data),
+    )
+
 
 # ── API : moyenne de classe pour une note spécifique ──
-@app.route('/api/note/<int:note_id>/moyenne-classe')
+@app.route("/api/note/<int:note_id>/moyenne-classe")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def api_moyenne_classe_note(note_id):
     # Vérifie que la note appartient bien à l'étudiant connecté
     note = Note.query.filter_by(id=note_id, etudiant_id=current_user.id).first()
@@ -390,37 +481,44 @@ def api_moyenne_classe_note(note_id):
     moyenne_classe = round(tp / tw, 2) if tw else 0
     nb_eleves = len(set(n.etudiant_id for n in notes_matiere))
 
-    return jsonify({
-        "moyenne_classe": moyenne_classe,
-        "nb_eleves": nb_eleves,
-        "matiere": note.matiere,
-        "ma_note": note.valeur
-    })
+    return jsonify(
+        {
+            "moyenne_classe": moyenne_classe,
+            "nb_eleves": nb_eleves,
+            "matiere": note.matiere,
+            "ma_note": note.valeur,
+        }
+    )
 
 
-@app.route('/etudiant/absences')
+@app.route("/etudiant/absences")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_absences():
     # 1. On interroge la base de données pour récupérer les absences de l'étudiant connecté
     # On utilise current_user.id pour être sûr qu'il ne voit que SES absences
     mes_absences = Absence.query.filter_by(etudiant_id=current_user.id).all()
-    
-    # 2. On envoie ces données au fichier HTML via la variable 'absences'
-    return render_template('absences.html', absences=mes_absences)
 
-@app.route('/etudiant/edt')
+    # 2. On envoie ces données au fichier HTML via la variable 'absences'
+    return render_template("absences.html", absences=mes_absences)
+
+
+@app.route("/etudiant/edt")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_edt():
     # Définition des couleurs pour l'affichage de l'emploi du temps
-    palette = ['#111','#444','#777','#999','#bbb','#555','#333','#666']
-    
+    palette = ["#111", "#444", "#777", "#999", "#bbb", "#555", "#333", "#666"]
+
     # --- SÉCURITÉ (Isolation RBAC) ---
     # On filtre les cours pour ne récupérer QUE ceux de la classe de l'étudiant.
     # S'il n'a pas de classe (par exemple, un compte fraîchement créé), on renvoie une liste vide.
     if current_user.classe_id:
-        cours_list = Cours.query.filter_by(classe_id=current_user.classe_id).order_by(Cours.jour, Cours.heure_debut).all()
+        cours_list = (
+            Cours.query.filter_by(classe_id=current_user.classe_id)
+            .order_by(Cours.jour, Cours.heure_debut)
+            .all()
+        )
     else:
         cours_list = []
 
@@ -429,36 +527,45 @@ def etudiant_edt():
     couleurs = {m: palette[i % len(palette)] for i, m in enumerate(matieres_uniques)}
 
     # Préparation des données au format attendu par FullCalendar.js
-    cours_json = [{
-        "title":      c.matiere,
-        "daysOfWeek": [c.jour + 1],  # FullCalendar considère dimanche comme 0, lundi comme 1
-        "startTime":  c.heure_debut,
-        "endTime":    c.heure_fin,
-        "backgroundColor": couleurs.get(c.matiere, '#111'),
-        "borderColor":     couleurs.get(c.matiere, '#111'),
-        "extendedProps": {
-            "matiere":    c.matiere,
-            "professeur": c.professeur,
-            "salle":      c.salle,
+    cours_json = [
+        {
+            "title": c.matiere,
+            "daysOfWeek": [
+                c.jour + 1
+            ],  # FullCalendar considère dimanche comme 0, lundi comme 1
+            "startTime": c.heure_debut,
+            "endTime": c.heure_fin,
+            "backgroundColor": couleurs.get(c.matiere, "#111"),
+            "borderColor": couleurs.get(c.matiere, "#111"),
+            "extendedProps": {
+                "matiere": c.matiere,
+                "professeur": c.professeur,
+                "salle": c.salle,
+            },
         }
-    } for c in cours_list]
+        for c in cours_list
+    ]
 
     legende = couleurs
 
-    return render_template('edt.html', cours_json=cours_json, legende=legende)
+    return render_template("edt.html", cours_json=cours_json, legende=legende)
 
 
-@app.route('/etudiant/dm')
+@app.route("/etudiant/dm")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_dm_liste():
-    now = datetime.now().strftime('%Y-%m-%dT%H:%M')
-    
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M")
+
     # --- SÉCURITÉ (Isolation RBAC) ---
     # On filtre les DM pour ne récupérer QUE ceux attribués à la classe de l'étudiant connecté.
     # Si l'étudiant n'est pas encore assigné à une classe, on renvoie une liste vide par précaution.
     if current_user.classe_id:
-        tous_dms = DM.query.filter_by(classe_id=current_user.classe_id).order_by(DM.date_fin.desc()).all()
+        tous_dms = (
+            DM.query.filter_by(classe_id=current_user.classe_id)
+            .order_by(DM.date_fin.desc())
+            .all()
+        )
     else:
         tous_dms = []
 
@@ -466,38 +573,39 @@ def etudiant_dm_liste():
     for dm in tous_dms:
         # On cherche s'il y a déjà une soumission existante pour CET étudiant et CE devoir
         soumission = Soumission.query.filter_by(
-            dm_id=dm.id,
-            etudiant_id=current_user.id
+            dm_id=dm.id, etudiant_id=current_user.id
         ).first()
 
         # Détermination du statut du DM en fonction des dates
         if now < dm.date_debut:
-            statut_dm = 'a_venir'
+            statut_dm = "a_venir"
         elif now > dm.date_fin:
-            statut_dm = 'expire'
+            statut_dm = "expire"
         else:
-            statut_dm = 'actif'
+            statut_dm = "actif"
 
         # On prépare le dictionnaire qui sera envoyé au template HTML
-        dms_data.append({
-            'dm':          dm,
-            'soumission':  soumission,
-            'statut_dm':   statut_dm,
-            'nb_questions': len(dm.questions)
-        })
+        dms_data.append(
+            {
+                "dm": dm,
+                "soumission": soumission,
+                "statut_dm": statut_dm,
+                "nb_questions": len(dm.questions),
+            }
+        )
 
-    return render_template('dm_liste.html', dms_data=dms_data, now=now)
- 
- 
+    return render_template("dm_liste.html", dms_data=dms_data, now=now)
 
-@app.route('/etudiant/dm/<int:dm_id>', methods=['GET', 'POST'])
+
+@app.route("/etudiant/dm/<int:dm_id>", methods=["GET", "POST"])
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_dm_passer(dm_id):
     dm = DM.query.get_or_404(dm_id)
 
     from datetime import datetime
-    now = datetime.now().strftime('%Y-%m-%dT%H:%M')
+
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M")
 
     # SÉCURITÉ (Isolation) : Vérifie que le DM appartient bien à la classe de l'étudiant
     if dm.classe_id != current_user.classe_id:
@@ -509,20 +617,17 @@ def etudiant_dm_passer(dm_id):
 
     # Cherche si l'étudiant a déjà commencé ce devoir
     soumission = Soumission.query.filter_by(
-        dm_id=dm_id,
-        etudiant_id=current_user.id
+        dm_id=dm_id, etudiant_id=current_user.id
     ).first()
 
     # Si le devoir est déjà terminé, on le redirige vers ses résultats
-    if soumission and soumission.statut == 'termine':
-        return redirect(url_for('etudiant_dm_resultats', dm_id=dm_id))
+    if soumission and soumission.statut == "termine":
+        return redirect(url_for("etudiant_dm_resultats", dm_id=dm_id))
 
     # Si c'est sa première visite, on crée une copie (soumission) "en cours"
     if not soumission:
         soumission = Soumission(
-            dm_id=dm_id,
-            etudiant_id=current_user.id,
-            statut='en_cours'
+            dm_id=dm_id, etudiant_id=current_user.id, statut="en_cours"
         )
         db.session.add(soumission)
         db.session.commit()
@@ -530,15 +635,14 @@ def etudiant_dm_passer(dm_id):
     questions = dm.questions  # Les questions sont déjà triées par ordre
 
     # --- GESTION DE LA SAUVEGARDE ET SOUMISSION (MÉTHODE POST) ---
-    if request.method == 'POST':
-        action = request.form.get('action')  # Récupère le bouton cliqué
+    if request.method == "POST":
+        action = request.form.get("action")  # Récupère le bouton cliqué
 
         # 1. On sauvegarde toutes les réponses saisies
         for q in questions:
-            val = request.form.get(f'reponse_{q.id}', '').strip()
+            val = request.form.get(f"reponse_{q.id}", "").strip()
             rep = Reponse.query.filter_by(
-                soumission_id=soumission.id,
-                question_id=q.id
+                soumission_id=soumission.id, question_id=q.id
             ).first()
             if rep:
                 rep.valeur = val
@@ -547,111 +651,122 @@ def etudiant_dm_passer(dm_id):
                 db.session.add(rep)
 
         # 2. Si l'étudiant a cliqué sur "Terminer et Soumettre"
-        if action == 'soumettre':
+        if action == "soumettre":
             nb_correct = 0
             # Petite correction automatique pour préparer la note
             for q in questions:
                 rep = Reponse.query.filter_by(
-                    soumission_id=soumission.id,
-                    question_id=q.id
+                    soumission_id=soumission.id, question_id=q.id
                 ).first()
                 # On compare la réponse en ignorant les majuscules et les espaces
-                if rep and rep.valeur.strip().lower() == q.reponse_correcte.strip().lower():
+                if (
+                    rep
+                    and rep.valeur.strip().lower() == q.reponse_correcte.strip().lower()
+                ):
                     nb_correct += 1
 
             # Calcul de la note sur 20
-            note_calculee = round((nb_correct / len(questions)) * 20, 2) if questions else 0
+            note_calculee = (
+                round((nb_correct / len(questions)) * 20, 2) if questions else 0
+            )
             soumission.note = note_calculee
-            soumission.statut = 'termine'
+            soumission.statut = "termine"
             soumission.date_soumission = now
-            
+
             # --- NOUVEAUTÉ : AJOUT AUTOMATIQUE DANS LE BULLETIN ---
             # On crée une vraie note officielle pour l'élève
             nouvelle_note_bulletin = Note(
-                matiere=dm.matiere,           # On reprend la matière du DM
-                valeur=note_calculee,         # La note qu'on vient de calculer
-                coefficient=1,                # Tu peux changer le coefficient ici (ex: 2)
-                etudiant_id=current_user.id   # On l'attribue à l'étudiant connecté
+                matiere=dm.matiere,  # On reprend la matière du DM
+                valeur=note_calculee,  # La note qu'on vient de calculer
+                coefficient=1,  # Tu peux changer le coefficient ici (ex: 2)
+                etudiant_id=current_user.id,  # On l'attribue à l'étudiant connecté
             )
             db.session.add(nouvelle_note_bulletin)
             # ------------------------------------------------------
 
             db.session.commit()
-            return redirect(url_for('etudiant_dm_resultats', dm_id=dm_id))
+            return redirect(url_for("etudiant_dm_resultats", dm_id=dm_id))
 
-        db.session.commit() # Si c'est juste une "sauvegarde", on valide la transaction
+        db.session.commit()  # Si c'est juste une "sauvegarde", on valide la transaction
 
     # --- PRÉPARATION DES DONNÉES POUR L'AFFICHAGE ---
     reponses_dict = {}
     for rep in soumission.reponses:
-        reponses_dict[rep.question_id] = rep.valeur or ''
+        reponses_dict[rep.question_id] = rep.valeur or ""
 
     import json
+
     for q in questions:
-        if q.type_question == 'qcm' and q.options_qcm:
+        if q.type_question == "qcm" and q.options_qcm:
             q.options_parsed = json.loads(q.options_qcm)
         else:
             q.options_parsed = []
 
-    return render_template('dm_passer.html',
-                           dm=dm,
-                           questions=questions,
-                           reponses_dict=reponses_dict,
-                           soumission=soumission,
-                           now=now)
+    return render_template(
+        "dm_passer.html",
+        dm=dm,
+        questions=questions,
+        reponses_dict=reponses_dict,
+        soumission=soumission,
+        now=now,
+    )
 
 
- 
-@app.route('/etudiant/dm/<int:dm_id>/resultats')
+@app.route("/etudiant/dm/<int:dm_id>/resultats")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_dm_resultats(dm_id):
     dm = DM.query.get_or_404(dm_id)
     soumission = Soumission.query.filter_by(
-        dm_id=dm_id,
-        etudiant_id=current_user.id
+        dm_id=dm_id, etudiant_id=current_user.id
     ).first_or_404()
- 
+
     # Sécurité : seul l'étudiant proprio peut voir ses résultats
     if soumission.etudiant_id != current_user.id:
         abort(403)
- 
+
     # Résultats par question
     resultats = []
     for q in dm.questions:
         rep = Reponse.query.filter_by(
-            soumission_id=soumission.id,
-            question_id=q.id
+            soumission_id=soumission.id, question_id=q.id
         ).first()
-        valeur = rep.valeur if rep else ''
+        valeur = rep.valeur if rep else ""
         correct = valeur.strip().lower() == q.reponse_correcte.strip().lower()
- 
-        if q.type_question == 'qcm' and q.options_qcm:
+
+        if q.type_question == "qcm" and q.options_qcm:
             q.options_parsed = json.loads(q.options_qcm)
         else:
             q.options_parsed = []
- 
-        resultats.append({
-            'question':  q,
-            'reponse':   valeur,
-            'correct':   correct,
-        })
- 
-    return render_template('dm_resultats.html',
-                           dm=dm,
-                           soumission=soumission,
-                           resultats=resultats)
+
+        resultats.append(
+            {
+                "question": q,
+                "reponse": valeur,
+                "correct": correct,
+            }
+        )
+
+    return render_template(
+        "dm_resultats.html", dm=dm, soumission=soumission, resultats=resultats
+    )
+
 
 # --- ROUTE : AFFICHAGE DE L'AGENDA ---
 from collections import defaultdict
 
-@app.route('/etudiant/devoirs')
+
+@app.route("/etudiant/devoirs")
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def etudiant_devoirs():
     # 1. Récupération des devoirs de la classe (triés par date)
     if current_user.classe_id:
-        devoirs_bruts = Devoir.query.filter_by(classe_id=current_user.classe_id).order_by(Devoir.date_remise.asc()).all()
+        devoirs_bruts = (
+            Devoir.query.filter_by(classe_id=current_user.classe_id)
+            .order_by(Devoir.date_remise.asc())
+            .all()
+        )
     else:
         devoirs_bruts = []
 
@@ -663,29 +778,35 @@ def etudiant_devoirs():
     devoirs_par_date = defaultdict(list)
     for d in devoirs_bruts:
         devoirs_par_date[d.date_remise].append(d)
-    
+
     # On trie les dates pour l'affichage dans l'ordre chronologique
     dates_triees = sorted(devoirs_par_date.keys())
 
-    return render_template('devoirs.html', 
-                           devoirs_par_date=devoirs_par_date, 
-                           dates_triees=dates_triees, 
-                           faits_ids=faits_ids)
+    return render_template(
+        "devoirs.html",
+        devoirs_par_date=devoirs_par_date,
+        dates_triees=dates_triees,
+        faits_ids=faits_ids,
+    )
 
 
 # --- API : SAUVEGARDE DU CHECK (SANS RECHARGEMENT) ---
-@app.route('/api/devoir/<int:devoir_id>/toggle', methods=['POST'])
+@app.route("/api/devoir/<int:devoir_id>/toggle", methods=["POST"])
 @login_required
-@role_required('[ETUDIANT]')
+@role_required("[ETUDIANT]")
 def toggle_devoir(devoir_id):
     # SÉCURITÉ : Vérification de l'appartenance du devoir à la classe de l'élève
     devoir = Devoir.query.get_or_404(devoir_id)
     if devoir.classe_id != current_user.classe_id:
-        abort(403) # Accès interdit si tentative de modifier un devoir d'une autre classe [cite: 27]
+        abort(
+            403
+        )  # Accès interdit si tentative de modifier un devoir d'une autre classe [cite: 27]
 
     # Recherche ou création de l'état de suivi
-    suivi = DevoirSuivi.query.filter_by(user_id=current_user.id, devoir_id=devoir_id).first()
-    
+    suivi = DevoirSuivi.query.filter_by(
+        user_id=current_user.id, devoir_id=devoir_id
+    ).first()
+
     if not suivi:
         # Premier clic : on crée l'entrée en base
         suivi = DevoirSuivi(user_id=current_user.id, devoir_id=devoir_id, est_fait=True)
@@ -693,23 +814,26 @@ def toggle_devoir(devoir_id):
     else:
         # Clics suivants : on inverse l'état (True <-> False)
         suivi.est_fait = not suivi.est_fait
-    
+
     db.session.commit()
     return jsonify({"success": True, "est_fait": suivi.est_fait})
 
+
 # --- SOCKET.IO : TEMPS RÉEL ---
 
-@socketio.on('join')
+
+@socketio.on("join")
 def on_join(data):
     # On force le nom de la room en string pour éviter les bugs
-    room = str(data['room'])
+    room = str(data["room"])
     join_room(room)
     print(f"DEBUG: L'utilisateur {current_user.email} a rejoint la room {room}")
 
-@socketio.on('send_message')
+
+@socketio.on("send_message")
 def handle_message(data):
-    room_id = str(data['room'])
-    content = data.get('message')
+    room_id = str(data["room"])
+    content = data.get("message")
     if not content or not room_id:
         return
     conv = Conversation.query.get(int(room_id))
@@ -718,50 +842,51 @@ def handle_message(data):
     if len(content) > 2000:
         return
     msg = ChatMessage(
-        conversation_id=int(room_id),
-        sender_id=current_user.id,
-        content=content
+        conversation_id=int(room_id), sender_id=current_user.id, content=content
     )
     db.session.add(msg)
     db.session.commit()
     data_to_send = msg.to_dict()
-    emit('receive_message', data_to_send, room=room_id)
+    emit("receive_message", data_to_send, room=room_id)
     # Notif aux autres participants
     for user in conv.users:
         if user.id != current_user.id:
-            socketio.emit('new_message_notif', {
-                'conversation_id': int(room_id),
-                'sender': current_user.email
-            }, room=f"user_{user.id}", namespace='/notif')
+            socketio.emit(
+                "new_message_notif",
+                {"conversation_id": int(room_id), "sender": current_user.email},
+                room=f"user_{user.id}",
+                namespace="/notif",
+            )
 
-@app.route('/api/chat/upload', methods=['POST'])
+
+@app.route("/api/chat/upload", methods=["POST"])
 @login_required
 def chat_upload():
-    if 'file' not in request.files:
+    if "file" not in request.files:
         return jsonify({"error": "Aucun fichier détecté"}), 400
 
-    file = request.files['file']
-    conv_id = request.form.get('conversation_id')
+    file = request.files["file"]
+    conv_id = request.form.get("conversation_id")
 
-    if file and file.filename != '':
+    if file and file.filename != "":
         # 1. On sécurise le nom
         filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
-        
+
         # 2. CRITIQUE : S'assurer que le dossier 'chat' existe bien dans tes uploads
         # On enregistre dans : /app/backend/static/uploads/chat/
         chat_upload_dir = app.config["UPLOAD_FOLDER"]
         if not os.path.exists(chat_upload_dir):
             os.makedirs(chat_upload_dir)
-            
+
         filepath = os.path.join(chat_upload_dir, filename)
         file.save(filepath)
 
         # 3. On crée le message
         msg = ChatMessage(
-            conversation_id=int(conv_id), # On s'assure que c'est un entier pour la DB
+            conversation_id=int(conv_id),  # On s'assure que c'est un entier pour la DB
             sender_id=current_user.id,
-            content="", 
-            image_url=f"/static/uploads/chat/{filename}"
+            content="",
+            image_url=f"/static/uploads/chat/{filename}",
         )
         db.session.add(msg)
         db.session.commit()
@@ -769,41 +894,49 @@ def chat_upload():
         # 4. LE SIGNAL LIVE : On envoie le dictionnaire complet
         # IMPORTANT : Vérifie que ton msg.to_dict() inclut bien 'image_url'
         from flask_socketio import emit as socketio_emit
+
         with app.app_context():
-            socketio.emit('receive_message', msg.to_dict(), room=str(conv_id), namespace='/')
+            socketio.emit(
+                "receive_message", msg.to_dict(), room=str(conv_id), namespace="/"
+            )
 
         return jsonify({"success": True, "image_url": msg.image_url})
 
     return jsonify({"error": "Erreur lors de l'upload"}), 400
 
+
 # --- ROUTE : PAGE PRINCIPALE MESSAGERIE ---
-@app.route('/messages')
+@app.route("/messages")
 @limiter.exempt
 @login_required
 def messages_page():
     # On récupère toutes les conversations auxquelles participe l'utilisateur
     # On les trie par le dernier message reçu (si possible) ou par ID
     user_conversations = current_user.conversations.all()
-    
+
     # Pour chaque conversation, on s'assure d'avoir un nom (si privé)
     for conv in user_conversations:
         if not conv.is_group:
             # Si c'est un chat privé, le nom affiché est l'email de l'autre personne
-            autre_participant = next((u for u in conv.users if u.id != current_user.id), None)
-            conv.display_name = autre_participant.email if autre_participant else "Utilisateur inconnu"
+            autre_participant = next(
+                (u for u in conv.users if u.id != current_user.id), None
+            )
+            conv.display_name = (
+                autre_participant.email if autre_participant else "Utilisateur inconnu"
+            )
         else:
             conv.display_name = conv.nom
 
-    return render_template('messages.html', conversations=user_conversations)
+    return render_template("messages.html", conversations=user_conversations)
 
 
 # --- API : CRÉER UNE CONVERSATION OU UN GROUPE ---
-@app.route('/api/conversations/create', methods=['POST'])
+@app.route("/api/conversations/create", methods=["POST"])
 @login_required
 def create_conversation():
     data = request.get_json()
-    user_ids = data.get('user_ids', []) # Liste d'IDs des participants
-    group_name = data.get('name')       # Nom si c'est un groupe
+    user_ids = data.get("user_ids", [])  # Liste d'IDs des participants
+    group_name = data.get("name")  # Nom si c'est un groupe
     is_group = len(user_ids) > 1 or group_name is not None
 
     if not user_ids:
@@ -815,30 +948,44 @@ def create_conversation():
 
     # SÉCURITÉ : On vérifie que tous les utilisateurs existent
     participants_users = User.query.filter(User.id.in_(user_ids)).all()
-    
+
     if not is_group:
         # LOGIQUE CHAT PRIVÉ : On vérifie si une conv existe déjà entre ces deux-là
         # (Pour éviter de créer 50 salons différents pour les mêmes personnes)
-        existing_conv = Conversation.query.filter_by(is_group=False).join(participants).filter(participants.c.user_id.in_(user_ids)).all()
+        existing_conv = (
+            Conversation.query.filter_by(is_group=False)
+            .join(participants)
+            .filter(participants.c.user_id.in_(user_ids))
+            .all()
+        )
         for conv in existing_conv:
             if len(conv.users) == 2 and all(u.id in user_ids for u in conv.users):
-                return jsonify({"success": True, "conversation_id": conv.id, "already_exists": True})
+                return jsonify(
+                    {
+                        "success": True,
+                        "conversation_id": conv.id,
+                        "already_exists": True,
+                    }
+                )
 
     # CRÉATION DU SALON
     new_conv = Conversation(nom=group_name, is_group=is_group)
-    new_conv.users.extend(participants_users) # On ajoute tous les participants
-    
+    new_conv.users.extend(participants_users)  # On ajoute tous les participants
+
     db.session.add(new_conv)
     db.session.commit()
 
-    return jsonify({
-        "success": True, 
-        "conversation_id": new_conv.id, 
-        "name": group_name or participants_users[0].email
-    })
+    return jsonify(
+        {
+            "success": True,
+            "conversation_id": new_conv.id,
+            "name": group_name or participants_users[0].email,
+        }
+    )
+
 
 # --- API : LISTE DES CONTACTS (Pour le sélecteur) ---
-@app.route('/api/users/list')
+@app.route("/api/users/list")
 @login_required
 def get_users_list():
     # Renvoie tous les utilisateurs sauf soi-même pour créer un chat
@@ -846,7 +993,7 @@ def get_users_list():
     return jsonify([{"id": u.id, "email": u.email} for u in users])
 
 
-@app.route('/api/chat/history/<int:conv_id>')
+@app.route("/api/chat/history/<int:conv_id>")
 @login_required
 def get_chat_history(conv_id):
     # Sécurité : On vérifie que l'utilisateur fait partie de la conversation
@@ -855,28 +1002,33 @@ def get_chat_history(conv_id):
         return jsonify({"error": "Accès non autorisé"}), 403
 
     # On récupère les messages triés par date
-    messages = ChatMessage.query.filter_by(conversation_id=conv_id).order_by(ChatMessage.timestamp.asc()).all()
-    
+    messages = (
+        ChatMessage.query.filter_by(conversation_id=conv_id)
+        .order_by(ChatMessage.timestamp.asc())
+        .all()
+    )
+
     return jsonify([msg.to_dict() for msg in messages])
 
 
-@socketio.on('send_image')
+@socketio.on("send_image")
 def handle_image(data):
     print(f"DEBUG send_image reçu room={data.get('room')}", flush=True)
-    room_id = str(data['room'])
-    image_data = data.get('image_data')
-    filename = data.get('filename', 'image.png')
-    
+    room_id = str(data["room"])
+    image_data = data.get("image_data")
+    filename = data.get("filename", "image.png")
+
     if not image_data or not room_id:
         print("DEBUG: image_data ou room_id manquant", flush=True)
         return
 
     import base64
-    header, encoded = image_data.split(',', 1)
+
+    header, encoded = image_data.split(",", 1)
     file_bytes = base64.b64decode(encoded)
     safe_name = secure_filename(f"{datetime.now().timestamp()}_{filename}")
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], safe_name)
-    with open(filepath, 'wb') as f:
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], safe_name)
+    with open(filepath, "wb") as f:
         f.write(file_bytes)
 
     image_url = f"/static/uploads/chat/{safe_name}"
@@ -885,37 +1037,41 @@ def handle_image(data):
         conversation_id=int(room_id),
         sender_id=current_user.id,
         content="",
-        image_url=image_url
+        image_url=image_url,
     )
     db.session.add(msg)
     db.session.commit()
-    
-    print(f"DEBUG: emit receive_message room={room_id} image_url={image_url}", flush=True)
-    emit('receive_message', msg.to_dict(), room=room_id)
+
+    print(
+        f"DEBUG: emit receive_message room={room_id} image_url={image_url}", flush=True
+    )
+    emit("receive_message", msg.to_dict(), room=room_id)
     print("DEBUG: emit terminé", flush=True)
 
-@socketio.on('mark_read')
+
+@socketio.on("mark_read")
 def handle_mark_read(data):
-    room_id = str(data.get('room'))
+    room_id = str(data.get("room"))
     if not room_id:
         return
     conv = Conversation.query.get(int(room_id))
     if not conv or current_user not in conv.users:
         return
-    unread = ChatMessage.query.filter_by(
-        conversation_id=int(room_id),
-        lu=False
-    ).filter(ChatMessage.sender_id != current_user.id).all()
+    unread = (
+        ChatMessage.query.filter_by(conversation_id=int(room_id), lu=False)
+        .filter(ChatMessage.sender_id != current_user.id)
+        .all()
+    )
     for msg in unread:
         msg.lu = True
     db.session.commit()
     for user in conv.users:
         if user.id != current_user.id:
-            emit('messages_read', {
-                'conversation_id': int(room_id)
-            }, room=room_id)
+            emit("messages_read", {"conversation_id": int(room_id)}, room=room_id)
+
 
 # --- LOGIQUE JITSI ET APPELS VIDÉO ---
+
 
 def generer_token_jitsi(user_nom, user_email, user_avatar, room_name):
     """Génère un token JWT pour l'authentification Jitsi"""
@@ -925,172 +1081,189 @@ def generer_token_jitsi(user_nom, user_email, user_avatar, room_name):
 
     payload = {
         "context": {
-            "user": {
-                "avatar": user_avatar,
-                "name": user_nom,
-                "email": user_email
-            }
+            "user": {"avatar": user_avatar, "name": user_nom, "email": user_email}
         },
         "aud": "jitsi",
         "iss": app_id,
         "sub": "*",
         "room": room_name,
-        "exp": int(time.time()) + 3600
+        "exp": int(time.time()) + 3600,
     }
     return jwt.encode(payload, jitsi_secret, algorithm="HS256")
 
 
 # Événements WebSocket sur le namespace par défaut (celui utilisé par ta messagerie)
-@socketio.on('demande_appel')
+@socketio.on("demande_appel")
 def handle_demande_appel(data):
-    conversation_id = data.get('conversation_id')
+    conversation_id = data.get("conversation_id")
     room_name = f"Skaolink_Visio_{uuid.uuid4().hex[:12]}"
 
     # On notifie les autres participants de la conversation
-    emit('appel_entrant', {
-        'expediteur_id': current_user.id,
-        'expediteur_nom': current_user.email,
-        'room_name': room_name,
-        'conversation_id': conversation_id
-    }, room=str(conversation_id), include_self=False)
+    emit(
+        "appel_entrant",
+        {
+            "expediteur_id": current_user.id,
+            "expediteur_nom": current_user.email,
+            "room_name": room_name,
+            "conversation_id": conversation_id,
+        },
+        room=str(conversation_id),
+        include_self=False,
+    )
 
 
-@socketio.on('reponse_appel')
+@socketio.on("reponse_appel")
 def handle_reponse_appel(data):
-    conversation_id = data.get('conversation_id')
-    accepte = data.get('accepte')
-    room_name = data.get('room_name')
+    conversation_id = data.get("conversation_id")
+    accepte = data.get("accepte")
+    room_name = data.get("room_name")
 
     # 1. Création automatique du message dans la base de données
     content = "📞 Appel vidéo commencé" if accepte else "❌ Appel vidéo refusé"
     msg = ChatMessage(
-        conversation_id=int(conversation_id),
-        sender_id=current_user.id,
-        content=content
+        conversation_id=int(conversation_id), sender_id=current_user.id, content=content
     )
     db.session.add(msg)
     db.session.commit()
-    
+
     # 2. On envoie ce message instantanément dans le chat
-    emit('receive_message', msg.to_dict(), room=str(conversation_id))
+    emit("receive_message", msg.to_dict(), room=str(conversation_id))
 
     # 3. On renvoie la réponse technique pour lancer la vidéo
-    emit('appel_repondu', {
-        'accepte': accepte,
-        'room_name': room_name,
-        'repondeur_nom': current_user.email
-    }, room=str(conversation_id), include_self=False)
+    emit(
+        "appel_repondu",
+        {
+            "accepte": accepte,
+            "room_name": room_name,
+            "repondeur_nom": current_user.email,
+        },
+        room=str(conversation_id),
+        include_self=False,
+    )
 
 
-@socketio.on('fin_appel')
+@socketio.on("fin_appel")
 def handle_fin_appel(data):
-    conversation_id = data.get('conversation_id')
-    
-    # ASTUCE : Pour éviter que les DEUX utilisateurs génèrent le message 
+    conversation_id = data.get("conversation_id")
+
+    # ASTUCE : Pour éviter que les DEUX utilisateurs génèrent le message
     # "Appel terminé" en même temps, on vérifie quel est le tout dernier message.
-    dernier_msg = ChatMessage.query.filter_by(conversation_id=int(conversation_id)).order_by(ChatMessage.id.desc()).first()
-    
+    dernier_msg = (
+        ChatMessage.query.filter_by(conversation_id=int(conversation_id))
+        .order_by(ChatMessage.id.desc())
+        .first()
+    )
+
     if dernier_msg and dernier_msg.content != "📞 Appel vidéo terminé":
         msg = ChatMessage(
             conversation_id=int(conversation_id),
             sender_id=current_user.id,
-            content="📞 Appel vidéo terminé"
+            content="📞 Appel vidéo terminé",
         )
         db.session.add(msg)
         db.session.commit()
-        emit('receive_message', msg.to_dict(), room=str(conversation_id))
+        emit("receive_message", msg.to_dict(), room=str(conversation_id))
 
-@app.route('/prof/dashboard')
+
+@app.route("/prof/dashboard")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_dashboard():
-    # Pour l'instant, on rend juste le template. 
+    # Pour l'instant, on rend juste le template.
     # Plus tard, on passera les variables comme le nombre de copies à corriger, etc.
-    return render_template('prof.html')
+    return render_template("prof.html")
 
-@app.route('/prof/classes/<int:class_id>/student/<int:student_id>/note', methods=['POST'])
+
+@app.route(
+    "/prof/classes/<int:class_id>/student/<int:student_id>/note", methods=["POST"]
+)
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_saisir_note(class_id, student_id):
-    nom_eval = request.form.get('evaluation_nom')
-    matiere = request.form.get('matiere')
-    valeur = float(request.form.get('valeur'))
-    coefficient = int(request.form.get('sur', 1))
+    nom_eval = request.form.get("evaluation_nom")
+    matiere = request.form.get("matiere")
+    valeur = float(request.form.get("valeur"))
+    coefficient = int(request.form.get("sur", 1))
 
     nouvelle_note = Note(
-        matiere=matiere,
-        valeur=valeur,
-        coefficient=coefficient,
-        etudiant_id=student_id
+        matiere=matiere, valeur=valeur, coefficient=coefficient, etudiant_id=student_id
     )
     db.session.add(nouvelle_note)
     db.session.commit()
-    return redirect(url_for('prof_classe_detail', id=class_id))
+    return redirect(url_for("prof_classe_detail", id=class_id))
 
 
-@app.route('/prof/classes/<int:class_id>/student/<int:student_id>/absence', methods=['POST'])
+@app.route(
+    "/prof/classes/<int:class_id>/student/<int:student_id>/absence", methods=["POST"]
+)
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_saisir_absence(class_id, student_id):
-    motif = request.form.get('motif')
-    date_str = request.form.get('date') # Format reçu depuis le front : 2026-03-29
+    motif = request.form.get("motif")
+    date_str = request.form.get("date")  # Format reçu depuis le front : 2026-03-29
 
     # On crée l'absence en utilisant les colonnes exactes de ton modèle
     nouvelle_absence = Absence(
-        etudiant_id=student_id,
-        motif=motif,
-        date_absence=date_str  
+        etudiant_id=student_id, motif=motif, date_absence=date_str
     )
-    
+
     db.session.add(nouvelle_absence)
     db.session.commit()
 
-    return redirect(url_for('prof_classe_detail', id=class_id))
+    return redirect(url_for("prof_classe_detail", id=class_id))
 
 
-
-@app.route('/prof/classes/<int:class_id>/student/<int:student_id>/absence/<int:absence_id>/toggle', methods=['POST'])
+@app.route(
+    "/prof/classes/<int:class_id>/student/<int:student_id>/absence/<int:absence_id>/toggle",
+    methods=["POST"],
+)
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_toggle_absence(class_id, student_id, absence_id):
     # Récupère l'absence (si elle existe)
     absence = Absence.query.get_or_404(absence_id)
-    
+
     # Sécurité : Vérifie que l'absence appartient bien à l'élève en cours
     if absence.etudiant_id != student_id:
         abort(403)
-        
+
     # Bascule le statut justifié/non justifié
     absence.justifiee = not absence.justifiee
-    
+
     # Sauvegarde
     db.session.commit()
-    
+
     # Redirige vers la page où le prof se trouvait
-    return redirect(url_for('prof_student_stats', class_id=class_id, student_id=student_id))
+    return redirect(
+        url_for("prof_student_stats", class_id=class_id, student_id=student_id)
+    )
 
 
 # --- ROUTES PROFESSEUR : GESTION DES DM ---
 
-@app.route('/prof/dm')
+
+@app.route("/prof/dm")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_dm_liste():
     # Le professeur ne voit que les DM qu'il a lui-même créés
-    mes_dms = DM.query.filter_by(prof_id=current_user.id).order_by(DM.date_fin.desc()).all()
-    return render_template('prof_dm_liste.html', dms=mes_dms)
+    mes_dms = (
+        DM.query.filter_by(prof_id=current_user.id).order_by(DM.date_fin.desc()).all()
+    )
+    return render_template("prof_dm_liste.html", dms=mes_dms)
 
-@app.route('/prof/dm/create', methods=['GET', 'POST'])
+
+@app.route("/prof/dm/create", methods=["GET", "POST"])
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_dm_create():
-    if request.method == 'POST':
+    if request.method == "POST":
         # 1. Récupération des informations générales du DM
-        titre = request.form.get('titre')
-        matiere = request.form.get('matiere')
-        classe_id = request.form.get('classe_id')
-        date_debut = request.form.get('date_debut')
-        date_fin = request.form.get('date_fin')
+        titre = request.form.get("titre")
+        matiere = request.form.get("matiere")
+        classe_id = request.form.get("classe_id")
+        date_debut = request.form.get("date_debut")
+        date_fin = request.form.get("date_fin")
 
         # 2. Création de l'objet DM
         nouveau_dm = DM(
@@ -1099,16 +1272,16 @@ def prof_dm_create():
             classe_id=classe_id,
             date_debut=date_debut,
             date_fin=date_fin,
-            prof_id=current_user.id
+            prof_id=current_user.id,
         )
         db.session.add(nouveau_dm)
-        db.session.flush() # On flush pour obtenir l'ID du DM avant le commit final
+        db.session.flush()  # On flush pour obtenir l'ID du DM avant le commit final
 
         # 3. Récupération et création des questions (envoyées sous forme de listes depuis le HTML)
-        textes = request.form.getlist('question_texte[]')
-        types = request.form.getlist('question_type[]')
-        reponses = request.form.getlist('question_reponse[]')
-        options = request.form.getlist('question_options[]')
+        textes = request.form.getlist("question_texte[]")
+        types = request.form.getlist("question_type[]")
+        reponses = request.form.getlist("question_reponse[]")
+        options = request.form.getlist("question_options[]")
 
         # On boucle pour créer chaque question
         for i in range(len(textes)):
@@ -1119,8 +1292,10 @@ def prof_dm_create():
 
             # Si c'est un QCM, on transforme les options en format JSON
             options_json = None
-            if q_type == 'qcm' and q_opts:
-                options_liste = [opt.strip() for opt in q_opts.split(',') if opt.strip()]
+            if q_type == "qcm" and q_opts:
+                options_liste = [
+                    opt.strip() for opt in q_opts.split(",") if opt.strip()
+                ]
                 options_json = json.dumps(options_liste)
 
             nouvelle_question = Question(
@@ -1129,82 +1304,93 @@ def prof_dm_create():
                 texte=q_texte,
                 type_question=q_type,
                 reponse_correcte=q_reponse,
-                options_qcm=options_json
+                options_qcm=options_json,
             )
             db.session.add(nouvelle_question)
 
         db.session.commit()
-        return redirect(url_for('prof_dm_liste'))
+        return redirect(url_for("prof_dm_liste"))
 
     # Pour l'affichage du formulaire, on envoie la liste des classes
     classes = Classe.query.all()
-    return render_template('prof_dm_create.html', classes=classes)
-
-
+    return render_template("prof_dm_create.html", classes=classes)
 
 
 # --- ROUTES PROFESSEUR : GESTION DES CLASSES ---
 
-@app.route('/prof/classes')
+
+@app.route("/prof/classes")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_classes():
     # Un admin voit tout, un prof ne voit que ses propres classes
-    if current_user.role == '[ADMIN]':
+    if current_user.role == "[ADMIN]":
         classes = Classe.query.all()
     else:
         classes = current_user.classes_enseignees
-        
-    return render_template('prof_classes.html', classes=classes)
+
+    return render_template("prof_classes.html", classes=classes)
 
 
-@app.route('/prof/classes/<int:id>')
+@app.route("/prof/classes/<int:id>")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_classe_detail(id):
     classe = Classe.query.get_or_404(id)
-    etudiants = User.query.filter_by(classe_id=id, role='[ETUDIANT]').all()
-    
+    etudiants = User.query.filter_by(classe_id=id, role="[ETUDIANT]").all()
+
     # On récupère les étudiants qui NE SONT PAS déjà dans cette classe
     ids_actuels = [e.id for e in etudiants]
     if ids_actuels:
-        etudiants_dispo = User.query.filter(User.role == '[ETUDIANT]', ~User.id.in_(ids_actuels)).all()
+        etudiants_dispo = User.query.filter(
+            User.role == "[ETUDIANT]", ~User.id.in_(ids_actuels)
+        ).all()
     else:
-        etudiants_dispo = User.query.filter_by(role='[ETUDIANT]').all()
-        
-    return render_template('prof_classe_detail.html', classe=classe, etudiants=etudiants, etudiants_dispo=etudiants_dispo)
+        etudiants_dispo = User.query.filter_by(role="[ETUDIANT]").all()
 
-@app.route('/prof/classes/<int:class_id>/add', methods=['POST'])
+    return render_template(
+        "prof_classe_detail.html",
+        classe=classe,
+        etudiants=etudiants,
+        etudiants_dispo=etudiants_dispo,
+    )
+
+
+@app.route("/prof/classes/<int:class_id>/add", methods=["POST"])
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_add_student(class_id):
-    student_id = request.form.get('student_id')
+    student_id = request.form.get("student_id")
     if student_id:
         student = User.query.get(student_id)
         # On s'assure que c'est bien un étudiant avant de l'ajouter
-        if student and student.role == '[ETUDIANT]':
+        if student and student.role == "[ETUDIANT]":
             student.classe_id = class_id
             db.session.commit()
-    return redirect(url_for('prof_classe_detail', id=class_id))
+    return redirect(url_for("prof_classe_detail", id=class_id))
 
-@app.route('/prof/classes/<int:class_id>/remove/<int:student_id>', methods=['POST'])
+
+@app.route("/prof/classes/<int:class_id>/remove/<int:student_id>", methods=["POST"])
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_remove_student(class_id, student_id):
     student = User.query.get_or_404(student_id)
     # On vérifie que l'étudiant est bien dans cette classe avant de le retirer
-    if student.role == '[ETUDIANT]' and student.classe_id == class_id:
+    if student.role == "[ETUDIANT]" and student.classe_id == class_id:
         student.classe_id = None
         db.session.commit()
-    return redirect(url_for('prof_classe_detail', id=class_id))
+    return redirect(url_for("prof_classe_detail", id=class_id))
+
 
 # ── Route à ajouter dans app.py, avec les autres routes prof ──
 
-@app.route('/prof/classes/<int:class_id>/student/<int:student_id>/stats')
+
+@app.route("/prof/classes/<int:class_id>/student/<int:student_id>/stats")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_student_stats(class_id, student_id):
     from collections import defaultdict
+
     classe = Classe.query.get_or_404(class_id)
     etudiant = User.query.get_or_404(student_id)
 
@@ -1217,68 +1403,79 @@ def prof_student_stats(class_id, student_id):
 
     # Moyenne générale
     total_coeffs = sum(n.coefficient for n in notes)
-    moyenne = round(sum(n.valeur * n.coefficient for n in notes) / total_coeffs, 2) if total_coeffs > 0 else None
+    moyenne = (
+        round(sum(n.valeur * n.coefficient for n in notes) / total_coeffs, 2)
+        if total_coeffs > 0
+        else None
+    )
 
     # Notes par matière avec moyenne
-    notes_par_matiere = defaultdict(lambda: {'notes': [], 'moyenne': 0})
+    notes_par_matiere = defaultdict(lambda: {"notes": [], "moyenne": 0})
     for n in notes:
-        notes_par_matiere[n.matiere]['notes'].append(n)
+        notes_par_matiere[n.matiere]["notes"].append(n)
 
     for matiere, data in notes_par_matiere.items():
-        tp = sum(n.valeur * n.coefficient for n in data['notes'])
-        tw = sum(n.coefficient for n in data['notes'])
-        data['moyenne'] = round(tp / tw, 2) if tw else 0
+        tp = sum(n.valeur * n.coefficient for n in data["notes"])
+        tw = sum(n.coefficient for n in data["notes"])
+        data["moyenne"] = round(tp / tw, 2) if tw else 0
 
-    return render_template('prof_student_stats.html',
-                           classe=classe,
-                           etudiant=etudiant,
-                           notes=notes,
-                           absences=absences,
-                           moyenne=moyenne,
-                           notes_par_matiere=dict(notes_par_matiere))
-
-
+    return render_template(
+        "prof_student_stats.html",
+        classe=classe,
+        etudiant=etudiant,
+        notes=notes,
+        absences=absences,
+        moyenne=moyenne,
+        notes_par_matiere=dict(notes_par_matiere),
+    )
 
 
 # --- ROUTES PROFESSEUR : EMPLOI DU TEMPS ---
 
-@app.route('/prof/edt')
+
+@app.route("/prof/edt")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_edt():
     # 1. On récupère les classes pour le menu déroulant du formulaire
     classes = Classe.query.all()
-    
+
     # 2. On récupère uniquement les cours créés par ce professeur (identifié par son email)
     mes_cours = Cours.query.filter_by(professeur=current_user.email).all()
-    
+
     # 3. Préparation des données pour le calendrier dynamique (FullCalendar)
-    palette = ['#111','#444','#777','#999','#bbb','#555','#333','#666']
+    palette = ["#111", "#444", "#777", "#999", "#bbb", "#555", "#333", "#666"]
     matieres_uniques = sorted(set(c.matiere for c in mes_cours))
     couleurs = {m: palette[i % len(palette)] for i, m in enumerate(matieres_uniques)}
-    
-    cours_json = [{
-        "title": f"{c.matiere} ({c.salle})",
-        "daysOfWeek": [c.jour + 1],  # +1 car FullCalendar considère que 0=Dimanche, 1=Lundi
-        "startTime": c.heure_debut,
-        "endTime": c.heure_fin,
-        "backgroundColor": couleurs.get(c.matiere, '#111'),
-        "borderColor": couleurs.get(c.matiere, '#111'),
-    } for c in mes_cours]
-    
-    return render_template('prof_edt.html', classes=classes, cours_json=cours_json)
 
-@app.route('/prof/edt/add', methods=['POST'])
+    cours_json = [
+        {
+            "title": f"{c.matiere} ({c.salle})",
+            "daysOfWeek": [
+                c.jour + 1
+            ],  # +1 car FullCalendar considère que 0=Dimanche, 1=Lundi
+            "startTime": c.heure_debut,
+            "endTime": c.heure_fin,
+            "backgroundColor": couleurs.get(c.matiere, "#111"),
+            "borderColor": couleurs.get(c.matiere, "#111"),
+        }
+        for c in mes_cours
+    ]
+
+    return render_template("prof_edt.html", classes=classes, cours_json=cours_json)
+
+
+@app.route("/prof/edt/add", methods=["POST"])
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_add_cours():
-    matiere = request.form.get('matiere')
-    classe_id = request.form.get('classe_id')
-    salle = request.form.get('salle')
-    jour = request.form.get('jour')
-    heure_debut = request.form.get('heure_debut')
-    heure_fin = request.form.get('heure_fin')
-    
+    matiere = request.form.get("matiere")
+    classe_id = request.form.get("classe_id")
+    salle = request.form.get("salle")
+    jour = request.form.get("jour")
+    heure_debut = request.form.get("heure_debut")
+    heure_fin = request.form.get("heure_fin")
+
     # On crée le cours. Les étudiants de cette classe le verront automatiquement !
     nouveau_cours = Cours(
         matiere=matiere,
@@ -1287,175 +1484,208 @@ def prof_add_cours():
         jour=int(jour),
         heure_debut=heure_debut,
         heure_fin=heure_fin,
-        classe_id=int(classe_id)
+        classe_id=int(classe_id),
     )
     db.session.add(nouveau_cours)
     db.session.commit()
-    
-    return redirect(url_for('prof_edt'))
+
+    return redirect(url_for("prof_edt"))
 
 
 # --- ROUTES PROFESSEUR : AGENDA DES DEVOIRS ---
 
-@app.route('/prof/devoirs')
+
+@app.route("/prof/devoirs")
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_devoirs_liste():
     # On récupère tous les devoirs créés par ce professeur
     # On fait une jointure pour afficher le nom de la classe
     mes_devoirs = Devoir.query.order_by(Devoir.date_remise.desc()).all()
     classes = Classe.query.all()
-    return render_template('prof_devoirs.html', devoirs=mes_devoirs, classes=classes)
+    return render_template("prof_devoirs.html", devoirs=mes_devoirs, classes=classes)
 
-@app.route('/prof/devoirs/add', methods=['POST'])
+
+@app.route("/prof/devoirs/add", methods=["POST"])
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_add_devoir():
-    titre = request.form.get('titre')
-    matiere = request.form.get('matiere')
-    description = request.form.get('description')
-    date_remise = request.form.get('date_remise') # Format YYYY-MM-DD
-    classe_id = request.form.get('classe_id')
+    titre = request.form.get("titre")
+    matiere = request.form.get("matiere")
+    description = request.form.get("description")
+    date_remise = request.form.get("date_remise")  # Format YYYY-MM-DD
+    classe_id = request.form.get("classe_id")
 
     nouveau_devoir = Devoir(
         titre=titre,
         matiere=matiere,
         description=description,
         date_remise=date_remise,
-        classe_id=int(classe_id) if classe_id else None
+        classe_id=int(classe_id) if classe_id else None,
     )
-    
+
     db.session.add(nouveau_devoir)
     db.session.commit()
-    
-    flash("Devoir ajouté à l'agenda !")
-    return redirect(url_for('prof_devoirs_liste'))
 
-@app.route('/prof/devoirs/delete/<int:id>', methods=['POST'])
+    flash("Devoir ajouté à l'agenda !")
+    return redirect(url_for("prof_devoirs_liste"))
+
+
+@app.route("/prof/devoirs/delete/<int:id>", methods=["POST"])
 @login_required
-@role_required('[PROF]', '[ADMIN]')
+@role_required("[PROF]", "[ADMIN]")
 def prof_delete_devoir(id):
     devoir = Devoir.query.get_or_404(id)
     db.session.delete(devoir)
     db.session.commit()
-    return redirect(url_for('prof_devoirs_liste'))
+    return redirect(url_for("prof_devoirs_liste"))
 
 
 # --- ROUTES ADMINISTRATEUR : GESTION GLOBALE ---
 
-@app.route('/admin/dashboard')
+
+@app.route("/admin/dashboard")
 @login_required
-@role_required('[ADMIN]')
+@role_required("[ADMIN]")
 def admin_dashboard():
     # Statistiques rapides pour le tableau de bord [cite: 19]
     stats = {
-        'total_etudiants': User.query.filter_by(role='[ETUDIANT]').count(),
-        'total_professeurs': User.query.filter_by(role='[PROF]').count(),
-        'total_classes': Classe.query.count(),
+        "total_etudiants": User.query.filter_by(role="[ETUDIANT]").count(),
+        "total_professeurs": User.query.filter_by(role="[PROF]").count(),
+        "total_classes": Classe.query.count(),
     }
-    return render_template('admin_dashboard.html', stats=stats)
+    return render_template("admin_dashboard.html", stats=stats)
 
-@app.route('/admin/classes', methods=['GET', 'POST'])
+
+@app.route("/admin/classes", methods=["GET", "POST"])
 @login_required
-@role_required('[ADMIN]')
+@role_required("[ADMIN]")
 def admin_classes():
-    if request.method == 'POST':
-        nom_classe = request.form.get('nom')
+    if request.method == "POST":
+        nom_classe = request.form.get("nom")
         if nom_classe:
             nouvelle_classe = Classe(nom=nom_classe)
             db.session.add(nouvelle_classe)
             db.session.commit()
             flash(f"Classe {nom_classe} créée avec succès !")
-        return redirect(url_for('admin_classes'))
-    
+        return redirect(url_for("admin_classes"))
+
     classes = Classe.query.all()
-    return render_template('admin_classes.html', classes=classes)
+    return render_template("admin_classes.html", classes=classes)
 
-@app.route('/admin/users', methods=['GET', 'POST'])
+
+@app.route("/admin/users", methods=["GET", "POST"])
 @login_required
-@role_required('[ADMIN]')
+@role_required("[ADMIN]")
 def admin_users():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        role = request.form.get('role')
-        classe_id = request.form.get('classe_id')
-        classes_prof_ids = request.form.getlist('classes_prof')
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        role = request.form.get("role")
+        classe_id = request.form.get("classe_id")
+        classes_prof_ids = request.form.getlist("classes_prof")
 
-        hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+        hashed_pw = bcrypt.generate_password_hash(password).decode("utf-8")
         nouvel_utilisateur = User(
-            email=email, 
-            password_hash=hashed_pw, 
-            role=role, 
-            classe_id=int(classe_id) if classe_id and role == '[ETUDIANT]' else None
+            email=email,
+            password_hash=hashed_pw,
+            role=role,
+            classe_id=int(classe_id) if classe_id and role == "[ETUDIANT]" else None,
         )
 
         # --- ÉTAPE CRUCIALE : AJOUT AU CHAT GLOBAL ---
         # On récupère le groupe d'entraide créé lors de l'init-db
-        conv_globale = Conversation.query.filter_by(nom='Skaolink Chat - Entraide').first()
+        conv_globale = Conversation.query.filter_by(
+            nom="Skaolink Chat - Entraide"
+        ).first()
         if conv_globale:
             conv_globale.users.append(nouvel_utilisateur)
         # ---------------------------------------------
 
-        if role == '[PROF]' and classes_prof_ids:
-            classes_assignees = Classe.query.filter(Classe.id.in_(classes_prof_ids)).all()
-            nouvel_utilisateur.classes_enseignees.extend(classes_assignees)
+        if role == "[PROF]":
+            if classes_prof_ids:
+                classes_assignees = Classe.query.filter(
+                    Classe.id.in_(classes_prof_ids)
+                ).all()
+                nouvel_utilisateur.classes_enseignees.extend(classes_assignees)
+            elif classe_id:
+                classe_unique = Classe.query.get(int(classe_id))
+                if classe_unique:
+                    nouvel_utilisateur.classes_enseignees.append(classe_unique)
+
 
         db.session.add(nouvel_utilisateur)
         db.session.commit()
         flash(f"Compte {email} créé et ajouté à la messagerie globale !")
-        return redirect(url_for('admin_users'))
+        return redirect(url_for("admin_users"))
 
     utilisateurs = User.query.all()
     classes = Classe.query.all()
-    return render_template('admin_users.html', utilisateurs=utilisateurs, classes=classes)
+    return render_template(
+        "admin_users.html", utilisateurs=utilisateurs, classes=classes
+    )
 
 
-@app.route('/admin/users/edit/<int:id>', methods=['POST'])
+@app.route("/admin/users/edit/<int:id>", methods=["POST"])
 @login_required
-@role_required('[ADMIN]')
+@role_required("[ADMIN]")
 def admin_edit_user(id):
     user = User.query.get_or_404(id)
-    
-    email = request.form.get('email')
-    role = request.form.get('role')
-    classe_id = request.form.get('classe_id')
-    password = request.form.get('password')
-    classes_prof_ids = request.form.getlist('classes_prof') # NOUVEAU
 
-    if email: user.email = email
-    if role: user.role = role
-    
-    # Gestion Etudiant
-    if role == '[ETUDIANT]':
-        user.classe_id = int(classe_id) if classe_id else None
-        user.classes_enseignees = [] # On vide les classes profs au cas où
-        
-    # Gestion Prof
-    elif role == '[PROF]':
+    email = request.form.get("email")
+    form_role = request.form.get("role")
+    classe_id = request.form.get("classe_id")
+    password = request.form.get("password")
+    classes_prof_ids = request.form.getlist("classes_prof")
+
+    # 1. Mise à jour des infos de base
+    if email:
+        user.email = email
+    if form_role:
+        user.role = form_role
+    if password:
+        user.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+
+    # 2. Utilisation du vrai rôle final (Évite le bug si le navigateur n'envoie pas le rôle)
+    role_final = user.role
+
+    # 3. Nettoyage des listes fantômes (Supprime les éléments vides [''])
+    clean_prof_ids = [cid for cid in classes_prof_ids if cid.strip()]
+
+    # 4. Gestion de la classe si c'est un Étudiant
+    if role_final == "[ETUDIANT]":
+        user.classe_id = int(classe_id) if (classe_id and classe_id.strip()) else None
+        user.classes_enseignees = []  # Sécurité : On s'assure qu'un élève n'enseigne pas
+
+    # 5. Gestion des classes si c'est un Professeur
+    elif role_final == "[PROF]":
         user.classe_id = None
-        if classes_prof_ids:
-            user.classes_enseignees = Classe.query.filter(Classe.id.in_(classes_prof_ids)).all()
+        if clean_prof_ids:
+            user.classes_enseignees = Classe.query.filter(
+                Classe.id.in_(clean_prof_ids)
+            ).all()
+        elif classe_id and classe_id.strip():
+            classe_unique = Classe.query.get(int(classe_id))
+            if classe_unique:
+                user.classes_enseignees = [classe_unique]
         else:
             user.classes_enseignees = []
 
-    if password:
-        user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
-
     db.session.commit()
-    return redirect(url_for('admin_users'))
+    return redirect(url_for("admin_users"))
 
 
-@app.route('/admin/users/delete/<int:id>', methods=['POST'])
+
+@app.route("/admin/users/delete/<int:id>", methods=["POST"])
 @login_required
-@role_required('[ADMIN]')
+@role_required("[ADMIN]")
 def admin_delete_user(id):
     user = User.query.get_or_404(id)
-    
+
     # Protection : l'admin ne peut pas supprimer son propre compte
     if user.id == current_user.id:
-        return redirect(url_for('admin_users'))
-        
+        return redirect(url_for("admin_users"))
+
     try:
         db.session.delete(user)
         db.session.commit()
@@ -1463,86 +1693,172 @@ def admin_delete_user(id):
         db.session.rollback()
         # En cas d'erreur (si l'étudiant a déjà des notes liées, la DB bloque par sécurité)
         pass
-        
-    return redirect(url_for('admin_users'))
 
-@app.route('/logout')
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
-@app.route('/init-db')
+
+@app.route("/init-db")
 def init_db():
     try:
-        # 1. RESET TOTAL 
+        # 1. RESET TOTAL
         # On repart de zéro pour éviter les conflits d'IDs ou de schémas
         db.drop_all()
         db.create_all()
 
         # 2. CRÉATION DES CLASSES
-        c_3b = Classe(nom='3ème B')
-        c_4a = Classe(nom='4ème A')
+        c_3b = Classe(nom="3ème B")
+        c_4a = Classe(nom="4ème A")
         db.session.add_all([c_3b, c_4a])
         db.session.commit()
 
         # 3. CRÉATION DES UTILISATEURS (Mot de passe : password123)
-        pass_hash = bcrypt.generate_password_hash('password123').decode('utf-8')
+        pass_hash = bcrypt.generate_password_hash("password123").decode("utf-8")
 
-        admin = User(email='admin@skaolink.fr', password_hash=pass_hash, role='[ADMIN]')
-        prof = User(email='prof@skaolink.fr', password_hash=pass_hash, role='[PROF]')
-        
+        admin = User(email="admin@skaolink.fr", password_hash=pass_hash, role="[ADMIN]")
+        prof = User(email="prof@skaolink.fr", password_hash=pass_hash, role="[PROF]")
+
         # Étudiant 1 (3ème B)
-        etudiant = User(email='etudiant@skaolink.fr', password_hash=pass_hash, 
-                        role='[ETUDIANT]', classe_id=c_3b.id)
-        
+        etudiant = User(
+            email="etudiant@skaolink.fr",
+            password_hash=pass_hash,
+            role="[ETUDIANT]",
+            classe_id=c_3b.id,
+        )
+
         # Étudiant 2 / Hacker (4ème A) - Utile pour tester entre deux élèves
-        hacker = User(email='hacker@skaolink.fr', password_hash=pass_hash, 
-                      role='[ETUDIANT]', classe_id=c_4a.id)
+        hacker = User(
+            email="hacker@skaolink.fr",
+            password_hash=pass_hash,
+            role="[ETUDIANT]",
+            classe_id=c_4a.id,
+        )
 
         db.session.add_all([admin, prof, etudiant, hacker])
         db.session.commit()
 
         # 4. EMPLOI DU TEMPS (Pour la 3ème B)
         edt = [
-            Cours(matiere='Mathématiques', professeur='M. Dupont', salle='204', jour=0, heure_debut='08:00', heure_fin='10:00', classe_id=c_3b.id),
-            Cours(matiere='Français', professeur='Mme. Dubois', salle='301', jour=0, heure_debut='10:00', heure_fin='12:00', classe_id=c_3b.id),
-            Cours(matiere='Histoire-Géo', professeur='M. Martin', salle='112', jour=1, heure_debut='08:00', heure_fin='10:00', classe_id=c_3b.id)
+            Cours(
+                matiere="Mathématiques",
+                professeur="M. Dupont",
+                salle="204",
+                jour=0,
+                heure_debut="08:00",
+                heure_fin="10:00",
+                classe_id=c_3b.id,
+            ),
+            Cours(
+                matiere="Français",
+                professeur="Mme. Dubois",
+                salle="301",
+                jour=0,
+                heure_debut="10:00",
+                heure_fin="12:00",
+                classe_id=c_3b.id,
+            ),
+            Cours(
+                matiere="Histoire-Géo",
+                professeur="M. Martin",
+                salle="112",
+                jour=1,
+                heure_debut="08:00",
+                heure_fin="10:00",
+                classe_id=c_3b.id,
+            ),
         ]
         db.session.add_all(edt)
 
         # 5. AGENDA DES DEVOIRS (Pour la 3ème B)
         agenda = [
-            Devoir(matiere='Mathématiques', titre='Exercices p.45', description='Faire le 12 et 14', date_remise='2026-04-02', classe_id=c_3b.id),
-            Devoir(matiere='Anglais', titre='Vocabulaire', description='Apprendre Unit 4', date_remise='2026-04-03', classe_id=c_3b.id),
-            Devoir(matiere='Français', titre='Lecture', description='Lire chapitre 3 de Germinal', date_remise='2026-04-05', classe_id=c_3b.id)
+            Devoir(
+                matiere="Mathématiques",
+                titre="Exercices p.45",
+                description="Faire le 12 et 14",
+                date_remise="2026-04-02",
+                classe_id=c_3b.id,
+            ),
+            Devoir(
+                matiere="Anglais",
+                titre="Vocabulaire",
+                description="Apprendre Unit 4",
+                date_remise="2026-04-03",
+                classe_id=c_3b.id,
+            ),
+            Devoir(
+                matiere="Français",
+                titre="Lecture",
+                description="Lire chapitre 3 de Germinal",
+                date_remise="2026-04-05",
+                classe_id=c_3b.id,
+            ),
         ]
         db.session.add_all(agenda)
 
         # 6. NOTES ET ABSENCES (Pour l'étudiant principal)
-        db.session.add(Note(matiere='Mathématiques', valeur=15.0, coefficient=2, etudiant_id=etudiant.id))
-        db.session.add(Note(matiere='Français', valeur=12.5, coefficient=1, etudiant_id=etudiant.id))
-        db.session.add(Absence(date_absence='2026-03-25', motif='Grippe', justifiee=True, etudiant_id=etudiant.id))
+        db.session.add(
+            Note(
+                matiere="Mathématiques",
+                valeur=15.0,
+                coefficient=2,
+                etudiant_id=etudiant.id,
+            )
+        )
+        db.session.add(
+            Note(
+                matiere="Français", valeur=12.5, coefficient=1, etudiant_id=etudiant.id
+            )
+        )
+        db.session.add(
+            Absence(
+                date_absence="2026-03-25",
+                motif="Grippe",
+                justifiee=True,
+                etudiant_id=etudiant.id,
+            )
+        )
 
         # 7. DEVOIRS MAISON (DM NOTÉS)
-        dm = DM(titre='DM Algèbre', matiere='Mathématiques', 
-                date_debut='2026-03-20T08:00', date_fin='2026-04-30T23:59',
-                prof_id=prof.id, classe_id=c_3b.id)
+        dm = DM(
+            titre="DM Algèbre",
+            matiere="Mathématiques",
+            date_debut="2026-03-20T08:00",
+            date_fin="2026-04-30T23:59",
+            prof_id=prof.id,
+            classe_id=c_3b.id,
+        )
         db.session.add(dm)
-        db.session.flush() # Pour avoir l'ID du DM
+        db.session.flush()  # Pour avoir l'ID du DM
 
         questions = [
-            Question(dm_id=dm.id, ordre=1, texte='Combien font 8 x 7 ?', type_question='qcm', 
-                     reponse_correcte='56', options_qcm=json.dumps(['54', '56', '62', '48'])),
-            Question(dm_id=dm.id, ordre=2, texte='Quelle est la capitale de la France ?', type_question='texte', 
-                     reponse_correcte='Paris')
+            Question(
+                dm_id=dm.id,
+                ordre=1,
+                texte="Combien font 8 x 7 ?",
+                type_question="qcm",
+                reponse_correcte="56",
+                options_qcm=json.dumps(["54", "56", "62", "48"]),
+            ),
+            Question(
+                dm_id=dm.id,
+                ordre=2,
+                texte="Quelle est la capitale de la France ?",
+                type_question="texte",
+                reponse_correcte="Paris",
+            ),
         ]
         db.session.add_all(questions)
 
         # 8. MESSAGERIE (Le groupe WhatsApp)
         # On crée un groupe de discussion "Skaolink Chat"
-        conv_globale = Conversation(nom='Skaolink Chat - Entraide', is_group=True)
-        
+        conv_globale = Conversation(nom="Skaolink Chat - Entraide", is_group=True)
+
         # On ajoute TOUT LE MONDE dans ce groupe (Admin, Prof, Etudiant, Hacker)
         # Cela permet de tester entre deux comptes Etudiant très facilement
         tous_les_utilisateurs = User.query.all()
@@ -1554,7 +1870,7 @@ def init_db():
         msg_bienvenue = ChatMessage(
             conversation_id=conv_globale.id,
             sender_id=admin.id,
-            content="Bienvenue sur le chat Skaolink ! N'hésitez pas à poser vos questions ou envoyer des images de vos exercices."
+            content="Bienvenue sur le chat Skaolink ! N'hésitez pas à poser vos questions ou envoyer des images de vos exercices.",
         )
         db.session.add(msg_bienvenue)
 
@@ -1566,13 +1882,16 @@ def init_db():
         db.session.rollback()
         return f"❌ Erreur lors de l'initialisation : {str(e)}", 500
 
+
 @app.errorhandler(403)
 def forbidden_error(error):
     return "<h1>⛔ Erreur 403 - Accès Interdit</h1>", 403
+
 
 @app.errorhandler(429)
 def ratelimit_error(error):
     return "<h1>⚠️ Erreur 429 - Trop de tentatives</h1>", 429
 
-if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False)  # nosec B104
