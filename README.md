@@ -198,6 +198,7 @@ ssh user@<IP_VM>
 
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl git ufw
+sudo apt install openssh-server
 ```
 
 ---
@@ -249,29 +250,132 @@ cd /opt/Skaolink
 ### Étape 5 — Configurer les variables d'environnement
 
 ```bash
-nano .env
+sudo nano .env
 ```
 
 Contenu du fichier `.env` :
 
 ```env
-FLASK_SECRET_KEY=une_cle_secrete_longue_et_aleatoire
-MYSQL_PASSWORD=mot_de_passe_mysql
-MYSQL_ROOT_PASSWORD=mot_de_passe_root_mysql
-REDIS_PASSWORD=mot_de_passe_redis
+FLASK_SECRET_KEY=cle_secrete_skaolink_123
+MYSQL_ROOT_PASSWORD=root_password_secure
+MYSQL_PASSWORD=mot_de_passe_app_skaolink
+REDIS_PASSWORD=mot_de_passe_redis_robuste
+```
+```bash
+sudo nano docker-compose.yml
 ```
 
-> 💡 Générer une `SECRET_KEY` solide : `python3 -c "import secrets; print(secrets.token_hex(32))"`
+Contenu du ficher `docker-compose.yml` (Supprimer tout le contenu de `docker-compose.yml` avec `Crtl`+`k`) :
+
+```docker-compose.yml
+services:
+  nginx:
+    image: nginx:1.24
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - flask_app
+    networks:
+      - skaolink_net
+
+  flask_app:
+    build: ./backend
+    expose:
+      - "5000"
+    environment:
+      - SECRET_KEY=${FLASK_SECRET_KEY}
+      - DB_HOST=mysql_db
+      - DB_USER=skaolink_user
+      - DB_NAME=skaolink
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      # URL Redis format universel de compatibilité
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis_broker:6379/0
+    
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+      redis_broker:
+        condition: service_started
+    
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000/login\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - skaolink_net
+    volumes:
+      - static_files:/app/static
+
+  mysql_db:
+    image: mysql:8.0
+    expose:
+      - "3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: skaolink
+      MYSQL_USER: skaolink_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+    networks:
+      - skaolink_net
+
+  redis_broker:
+    image: redis:7
+    expose:
+      - "6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    networks:
+      - skaolink_net
+
+networks:
+  skaolink_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  static_files:
+```
+
 
 > ⚠️ Le fichier `.env` est dans `.gitignore`. Ne jamais le commiter.
 
 ---
 
-### Étape 6 — Lancer l'application
+### Étape 6 — Génerer des certificats SSL pour Nginx
+
+```bash
+sudo mkdir -p nginx/certs
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout nginx/certs/skaolink.key \
+  -out nginx/certs/skaolink.crt \
+  -subj "/C=FR/ST=Paris/L=Paris/O=Skaolink/CN=localhost"
+```
+
+### Étape 7 — Lancer l'application
 
 ```bash
 cd /opt/Skaolink
 docker compose up -d --build
+```
+
+Attendez environ 15 à 20 secondes que le conteneur MySQL soit prêt (`healthy`), puis initialisez les tables Flask. Sans cette étape, le site renverra une Erreur 500 (Base introuvable) :
+
+```bash
+sudo docker exec skaolink-flask_app-1 python3 -c "from app import app, db; ctx = app.app_context(); ctx.push(); db.create_all(); print('Tables initialisees')"
 ```
 
 Vérifier que les 4 conteneurs sont bien démarrés :
@@ -300,7 +404,7 @@ Mais avant il faudra se rendre sur ce site **<https://<adresse ip de la vm>/init
 
 ---
 
-### Étape 7 — Consulter les logs
+### Étape 8 — Consulter les logs
 
 ```bash
 # Tous les services en direct
@@ -313,7 +417,7 @@ docker compose logs -f nginx
 
 ---
 
-### Étape 8 — Mettre à jour l'application
+### Étape 9 — Mettre à jour l'application
 
 Pour déployer une nouvelle version depuis GitHub :
 
@@ -421,14 +525,65 @@ Les secrets de déploiement (`SECRET_KEY`, `DB_PASSWORD`, `REDIS_PASSWORD`, `JIT
 
 ---
 
+## 🛡️ Intégration Continue & DevSecOps
+
+Afin de garantir un haut niveau de sécurité et de qualité du code, le projet Skaolink intègre un pipeline **DevSecOps** automatisé via GitHub Actions. Ce pipeline s'exécute automatiquement à chaque `push` ou `pull_request` sur la branche principale (`main`).
+
+### ⚙️ Fonctionnement du Pipeline (Security Audit)
+
+Le workflow effectue une série de vérifications strictes avant de valider le code :
+
+1. **🕵️‍♂️ Scan des Secrets (Gitleaks) :**
+   * Analyse l'intégralité de l'historique des commits pour détecter la présence de secrets codés en dur (mots de passe, clés API, tokens, `.env`).
+   * Bloque le déploiement si une donnée sensible est exposée.
+
+2. **🐞 Analyse Statique de Sécurité (SAST avec Bandit) :**
+   * Analyse le code source Python (Backend Flask) pour identifier les vulnérabilités de sécurité courantes.
+   * Détecte les failles telles que les injections SQL, les configurations cryptographiques faibles, ou l'utilisation de fonctions dangereuses.
+   * Les flags `-ll` et `-ii` permettent de filtrer les résultats pour se concentrer sur les alertes de sévérité moyenne à haute, évitant ainsi le "bruit" des faux positifs.
+
+> **💡 Note pour les développeurs :** Si le pipeline échoue, consultez l'onglet *Actions* sur GitHub pour identifier la ligne de code ou le secret qui a déclenché l'alerte, corrigez-le, puis faites un nouveau commit.
+
+
+## 🛡️ Bilan de Sécurité : Failles Détectées et Exclusions Assumées
+
+Dans le cadre de notre démarche DevSecOps, le code et les dépendances de Skaolink sont audités en continu. Voici l'état des lieux des vulnérabilités remontées par nos outils (`pip-audit`, `Bandit`) et des choix architecturaux justifiant certaines exclusions.
+
+### 🛑 Failles Détectées et Corrigées (SAST & SCA)
+Les alertes critiques suivantes ont été identifiées lors de nos audits automatiques et immédiatement traitées :
+
+* **Vulnérabilité de dépendance (SCA - pip-audit) :** * *Alerte :* Détection de la faille **CVE-2026-32597** dans le paquet `pyjwt` version 2.8.0.
+  * *Correction :* Mise à jour de la dépendance vers la version sécurisée `2.12.0` dans le fichier `requirements.txt`.
+* **Exécution de code arbitraire (SAST - Bandit B201 / CWE-94) :**
+  * *Alerte :* `A Flask app appears to be run with debug=True` (Sévérité : Haute). L'outil a détecté l'activation du mode debug dans le fichier `backend/app.py`. Cela déclenche l'alerte **CWE-94 (Improper Control of Generation of Code - Code Injection)**, car l'activation du débogueur interactif Werkzeug en production permettrait à un attaquant d'exécuter des commandes Python arbitraires directement sur le serveur.
+  * *Correction :* Désactivation stricte du paramètre `debug=True` dans la fonction `socketio.run()`. Le mode debug est désormais désactivé par défaut et ne peut être activé qu'explicitement via une variable d'environnement réservée à l'environnement de développement local.
+### ⚠️ Failles Exclues ou Ignorées (Faux Positifs & Risques Acceptés)
+Certaines alertes remontées par l'analyseur statique ne représentent pas un danger réel dans le contexte spécifique de notre infrastructure conteneurisée. 
+
+Voici l'alerte que nous avons volontairement ignorée via le tag `# nosec` dans le code Python :
+
+* **Alerte Bandit B104 : `Possible binding to all interfaces (0.0.0.0)`** (Sévérité : Moyenne)
+  * *Contexte :* Le serveur Flask/SocketIO est configuré avec `host='0.0.0.0'` à la ligne 1578 de `app.py`.
+  * *Justification :* C'est une obligation architecturale liée à **Docker**. Pour que le conteneur Flask puisse accepter les requêtes provenant du conteneur Reverse Proxy (Nginx), il doit écouter sur toutes les interfaces de son environnement virtuel. Ce n'est pas une faille car le port 5000 n'est pas publié sur l'hôte physique ; le conteneur Flask est isolé dans le réseau privé interne `skaolink_net`.
+
+* **Exposition d'informations d'identification (Hard-coded Credentials) :**
+  * *Alerte :* Détection d'identifiants de test ou d'administration codés en clair directement dans le code source (ex: le compte `etudiant@skaolink.fr` avec son mot de passe par défaut `password123` dans les scripts d'initialisation). Cela expose l'application à un risque de compromission si le code venait à fuiter.
+  * *Risque assumé (Phase Prototype) :* Bien qu'il s'agisse d'une vulnérabilité reconnue, nous avons fait le choix de maintenir cette configuration de manière temporaire. Le projet étant actuellement en phase de prototypage, cette approche "hard-coded" permet de faciliter grandement la réplication de l'environnement sur de nouvelles machines et garantit le fonctionnement "plug-and-play" de la route `/init-db` sans nécessiter de configuration externe complexe.
+  
 ## 👨‍💻 Contributeurs
 
 Projet réalisé en groupe de 4 dans le cadre du module **GCS2-UE7-2 DevSecOps**.
+
+| Membre de l'équipe | Rôles & Contributions |
+| :--- | :--- |
+| **Nicolas** | 🏗️ **Lead Tech & Fullstack**<br>• Refonte complète et finale du cahier des charges.<br>• Développement du Backend.<br>• Développement du Frontend Étudiant et conception de base des Frontends Professeur et Admin.<br>• Rédaction de la documentation technique (README.md). |
+| **Corentin** | 🔐 **Développeur Fullstack & Architecture**<br>• Développement du Frontend Admin et de l'interface de connexion (Login).<br>• Développement d'une partie du Backend pour le système de connexion (Login).<br>• Participation au choix des stacks techniques dans le cahier des charges. |
+| **Clément** | 🛠️ **Développeur Fullstack & Architecture**<br>• Développement du Frontend Professeur.<br>• Développement Fullstack (Frontend & Backend) des pages d'erreur personnalisées.<br>• Participation au choix des stacks techniques dans le cahier des charges. |
 
 ---
 
 <div align="center">
 
-*GCS2-UE7-2 DevSecOps · Stack Technique v2.1 · Mars 2026*
+*GCS2-UE7-2 DevSecOps · Stack Technique v2.1 · Avril 2026*
 
 </div>
