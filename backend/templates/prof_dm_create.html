@@ -5,59 +5,61 @@
 {% block page_subtitle %}Configurez les paramètres et ajoutez vos questions.{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 20px;">
-    <a href="{{ url_for('prof_dm_liste') }}" style="text-decoration: none; color: var(--muted); font-size: 13px;">
+<div style="margin-bottom: 24px;">
+    <a href="{{ url_for('prof_dm_liste') }}" style="text-decoration: none; color: var(--muted); font-size: 13px; display: inline-block; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--ink)'" onmouseout="this.style.borderColor='var(--border)'">
         ← Retour aux DM
     </a>
 </div>
 
 <form action="{{ url_for('prof_dm_create') }}" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="total_questions" id="totalQuestions" value="1">
 
-    <div class="card" style="margin-bottom: 20px;">
-        <h3 style="margin-top: 0; font-size: 16px;">Paramètres du Devoir</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+    <div class="card" style="margin-bottom: 24px;">
+        <h3 style="margin-top: 0; font-size: 15px; font-weight: 500; margin-bottom: 24px;">Paramètres du Devoir</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
             <div>
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Titre du DM</label>
-                <input type="text" name="titre" required placeholder="Ex: Évaluation sur les fractions" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Titre du DM</label>
+                <input type="text" name="titre" required placeholder="Ex: Évaluation sur les fractions" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             <div>
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Matière</label>
-                <input type="text" name="matiere" required placeholder="Ex: Mathématiques" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Matière</label>
+                <input type="text" name="matiere" required placeholder="Ex: Mathématiques" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             <div>
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Classe cible</label>
-                <select name="classe_id" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Classe cible</label>
+                <select name="classe_id" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+                    <option value="">Sélectionnez une classe...</option>
                     {% for classe in classes %}
                         <option value="{{ classe.id }}">{{ classe.nom }}</option>
                     {% endfor %}
                 </select>
             </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px;">
             <div>
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Date et heure d'ouverture</label>
-                <input type="datetime-local" name="date_debut" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Date et heure d'ouverture</label>
+                <input type="datetime-local" name="date_debut" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             <div>
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Date et heure de fermeture</label>
-                <input type="datetime-local" name="date_fin" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Date et heure de fermeture</label>
+                <input type="datetime-local" name="date_fin" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 20px;">
-        <h3 style="margin-top: 0; font-size: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="card" style="margin-bottom: 24px;">
+        <h3 style="margin-top: 0; font-size: 15px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
             Questions
-            <button type="button" onclick="ajouterQuestion()" class="pill btn-outline" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">+ Ajouter une question</button>
+            <button type="button" onclick="ajouterQuestion()" style="padding: 8px 12px; font-family: inherit; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--ink)'" onmouseout="this.style.borderColor='var(--border)'">+ Ajouter une question</button>
         </h3>
         
         <div id="questions-container">
-            </div>
+        </div>
     </div>
 
-    <div style="text-align: right;">
-        <button type="submit" class="btn btn-success" style="background: #1e8e3e; color: white; padding: 12px 24px; border-radius: 8px; border: none; font-size: 15px; cursor: pointer; font-weight: bold;">Enregistrer le DM</button>
+    <div style="text-align: right; margin-bottom: 36px;">
+        <button type="submit" style="padding: 12px 24px; font-family: inherit; font-size: 14px; font-weight: 500; background: var(--ink); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; transition: opacity .15s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">Enregistrer le DM</button>
     </div>
 </form>
 
@@ -66,29 +68,31 @@
 
     function ajouterQuestion() {
         questionCount++;
+        document.getElementById('totalQuestions').value = questionCount;
+        
         const container = document.getElementById('questions-container');
         
         const questionHTML = `
-            <div id="q_${questionCount}" style="padding: 15px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; background: var(--soft);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <strong style="font-size: 14px;">Question ${questionCount}</strong>
-                    <button type="button" onclick="supprimerQuestion('q_${questionCount}')" style="background: transparent; border: none; color: #dc3545; cursor: pointer; font-size: 12px;">✖ Supprimer</button>
+            <div id="q_${questionCount}" style="padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; background: var(--soft);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <strong style="font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);">Question ${questionCount}</strong>
+                    <button type="button" onclick="supprimerQuestion('q_${questionCount}')" style="background: transparent; border: none; color: #dc3545; cursor: pointer; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">✖ Supprimer</button>
                 </div>
                 
-                <input type="text" name="question_texte[]" required placeholder="Posez votre question ici..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); margin-bottom: 10px;">
+                <input type="text" name="question_texte_${questionCount}" required placeholder="Posez votre question ici..." style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; margin-bottom: 12px;">
                 
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
-                    <select name="question_type[]" onchange="toggleOptions(this, ${questionCount})" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
+                    <select name="question_type_${questionCount}" onchange="toggleOptions(this, ${questionCount})" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none;">
                         <option value="texte">Réponse libre (Texte)</option>
                         <option value="qcm">QCM (Choix multiple)</option>
                     </select>
                     
-                    <input type="text" name="question_reponse[]" required placeholder="Réponse correcte attendue" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                    <input type="text" name="question_reponse_${questionCount}" required placeholder="Réponse correcte attendue" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none;">
                 </div>
                 
-                <div id="options_div_${questionCount}" style="display: none; margin-top: 10px;">
-                    <label style="display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px;">Options du QCM (séparez les choix par des virgules)</label>
-                    <input type="text" name="question_options[]" placeholder="Ex: Paris, Londres, Berlin, Madrid" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);">
+                <div id="options_div_${questionCount}" style="display: none; margin-top: 12px;">
+                    <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Options du QCM (séparez les choix par des virgules)</label>
+                    <input type="text" name="question_options_${questionCount}" placeholder="Ex: Paris, Londres, Berlin, Madrid" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none;">
                 </div>
             </div>
         `;
@@ -98,6 +102,7 @@
 
     function supprimerQuestion(id) {
         document.getElementById(id).remove();
+        // On ne décrémente pas questionCount pour éviter les doublons d'ID si on supprime puis rajoute une question
     }
 
     function toggleOptions(selectElement, id) {

@@ -5,63 +5,63 @@
 {% block page_subtitle %}Gérez vos classes, vos notes et vos devoirs.{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 36px;">
-    
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+<div style="display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 36px;">
+
+    <div class="card" style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: space-between;">
         <div class="card-head">
             <span class="card-title">Mes Classes</span>
-            <span class="pill">2 assignées</span>
+            <span class="badge">{{ current_user.classes_enseignees|length }} assignée(s)</span>
         </div>
         <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">Accédez à la liste de vos élèves pour saisir les notes et les absences.</p>
-        <button class="btn btn-outline" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--soft); color: var(--ink); cursor: pointer; font-weight: 500;">
+        <button onclick="window.location.href='{{ url_for('prof_classes') }}'" style="width: 100%; padding: 10px 12px; font-family: inherit; font-size: 14px; font-weight: 500; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--ink)'" onmouseout="this.style.borderColor='var(--border)'">
             Voir mes classes
         </button>
     </div>
 
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="card" style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: space-between;">
         <div class="card-head">
             <span class="card-title">Devoirs Maison</span>
-            <span class="pill" style="background: #1e8e3e; color: white; border: none;">À corriger</span>
+            <span class="badge" style="background: var(--ink); color: var(--bg); border: 1px solid var(--ink);">À corriger</span>
         </div>
         <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">Vous avez des soumissions d'élèves en attente de correction automatique ou manuelle.</p>
-        <button class="btn btn-outline" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--soft); color: var(--ink); cursor: pointer; font-weight: 500;">
+        <button onclick="window.location.href='{{ url_for('prof_dm_liste') }}'" style="width: 100%; padding: 10px 12px; font-family: inherit; font-size: 14px; font-weight: 500; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--ink)'" onmouseout="this.style.borderColor='var(--border)'">
             Gérer les DM
         </button>
     </div>
 
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="card" style="flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: space-between;">
         <div class="card-head">
             <span class="card-title">Prochain Cours</span>
-            <span class="pill">Aujourd'hui</span>
+            <span class="badge">Aujourd'hui</span>
         </div>
         <div style="margin-bottom: 20px;">
-            <strong style="display: block; font-size: 15px;">Mathématiques (3ème B)</strong>
-            <span style="font-size: 12px; color: var(--muted);">Salle 204 • 10:00 - 12:00</span>
+            <strong style="display: block; font-size: 15px;">Emploi du temps</strong>
+            <span style="font-size: 12px; color: var(--muted);">Consultez votre planning hebdomadaire</span>
         </div>
-        <button class="btn btn-outline" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--soft); color: var(--ink); cursor: pointer; font-weight: 500;">
+        <button onclick="window.location.href='{{ url_for('prof_edt') }}'" style="width: 100%; padding: 10px 12px; font-family: inherit; font-size: 14px; font-weight: 500; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: border-color .15s;" onmouseover="this.style.borderColor='var(--ink)'" onmouseout="this.style.borderColor='var(--border)'">
             Ouvrir l'emploi du temps
         </button>
     </div>
 
 </div>
 
-<h2 style="font-size: 16px; font-weight: 500; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border);">Activité récente</h2>
+<h2 style="font-size: 14px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Activité récente</h2>
 <div class="card" style="padding: 0;">
-    <div style="padding: 15px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px;">
-        <div style="width: 8px; height: 8px; border-radius: 50%; background: #1e8e3e;"></div>
+    <div style="padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 16px;">
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #1e8e3e; margin-top: 6px;"></div>
         <div style="flex-grow: 1;">
-            <div style="font-size: 13px; font-weight: 500;">Nouvelle soumission de DM</div>
-            <div style="font-size: 11px; color: var(--muted);">Etudiant (3ème B) a rendu "DM Algèbre".</div>
+            <div style="font-size: 14px; font-weight: 500; margin-bottom: 4px;">Nouvelle soumission de DM</div>
+            <div style="font-size: 13px; color: var(--muted);">Etudiant (3ème B) a rendu "DM Algèbre".</div>
         </div>
-        <span style="font-size: 11px; color: var(--muted);">Il y a 2h</span>
+        <span style="font-size: 11px; color: var(--muted); margin-top: 2px;">Il y a 2h</span>
     </div>
-    <div style="padding: 15px 24px; display: flex; align-items: center; gap: 15px;">
-        <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--muted);"></div>
+    <div style="padding: 16px 24px; display: flex; align-items: flex-start; gap: 16px;">
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-top: 6px;"></div>
         <div style="flex-grow: 1;">
-            <div style="font-size: 13px; font-weight: 500;">Note ajoutée</div>
-            <div style="font-size: 11px; color: var(--muted);">Vous avez saisi les notes de l'évaluation "Lecture".</div>
+            <div style="font-size: 14px; font-weight: 500; margin-bottom: 4px;">Note ajoutée</div>
+            <div style="font-size: 13px; color: var(--muted);">Vous avez saisi les notes de l'évaluation "Lecture".</div>
         </div>
-        <span style="font-size: 11px; color: var(--muted);">Hier</span>
+        <span style="font-size: 11px; color: var(--muted); margin-top: 2px;">Hier</span>
     </div>
 </div>
 {% endblock %}

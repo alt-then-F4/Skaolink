@@ -1,187 +1,181 @@
 {% extends "base.html" %}
-{% block title %}Stats — {{ etudiant.email.split('@')[0] | capitalize }}{% endblock %}
-{% block page_title %}{{ etudiant.email.split('@')[0] | capitalize }}{% endblock %}
-{% block page_subtitle %}{{ etudiant.email }} — Classe {{ classe.nom }}{% endblock %}
+
+{% block title %}Mon Emploi du Temps{% endblock %}
+{% block page_title %}Mon Emploi du Temps{% endblock %}
+{% block page_subtitle %}Gérez vos heures de cours et vos classes.{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Toolbar ── */
+.fc .fc-toolbar-title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.fc .fc-button {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    box-shadow: none;
+    transition: border-color .15s, background .15s;
+}
+
+.fc .fc-button:hover {
+    background: var(--soft);
+    border-color: #ccc;
+    color: var(--ink);
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+}
+
+.fc .fc-button:focus { box-shadow: none; outline: none; }
+
+/* ── En-têtes jours ── */
+.fc .fc-col-header-cell-cushion {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    padding: 8px 0;
+}
+
+/* ── Heures ── */
+.fc .fc-timegrid-slot-label-cushion {
+    font-size: 10px;
+    color: var(--muted);
+}
+
+/* ── Grille ── */
+.fc td, .fc th { border-color: var(--border); }
+.fc .fc-scrollgrid { border-color: var(--border); }
+.fc .fc-timegrid-now-indicator-line { border-color: var(--ink); }
+.fc .fc-day-today { background: var(--soft) !important; }
+.fc .fc-day-today .fc-col-header-cell-cushion { color: var(--ink); font-weight: 500; }
+
+/* ── Événements ── */
+.fc-event {
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 3px 6px !important;
+    cursor: pointer;
+    transition: opacity .15s;
+}
+
+.fc-event:hover { opacity: 0.8; }
+.fc-event-title { font-size: 11px !important; font-weight: 500 !important; }
+.fc-event-time  { font-size: 10px !important; opacity: 0.75; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 20px;">
-    <a href="{{ url_for('prof_classe_detail', id=classe.id) }}" style="text-decoration:none; color:var(--muted); font-size:13px;">
-        ← Retour à la classe
-    </a>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+    
+    <div class="card" style="flex: 1; min-width: 300px; max-width: 400px; padding: 24px;">
+        <h3 style="margin-top: 0; font-size: 15px; font-weight: 500; margin-bottom: 24px;">Ajouter un cours</h3>
+        <form action="{{ url_for('prof_add_cours') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Matière</label>
+                <input type="text" name="matiere" required placeholder="Ex: Histoire-Géo" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Classe</label>
+                <select name="classe_id" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+                    <option value="">Sélectionner une classe</option>
+                    {% for classe in classes %}
+                        <option value="{{ classe.id }}">{{ classe.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Salle</label>
+                <input type="text" name="salle" required placeholder="Ex: B204" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Jour</label>
+                <select name="jour" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+                    <option value="1">Lundi</option>
+                    <option value="2">Mardi</option>
+                    <option value="3">Mercredi</option>
+                    <option value="4">Jeudi</option>
+                    <option value="5">Vendredi</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+                <div style="flex: 1;">
+                    <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Heure début</label>
+                    <input type="time" name="heure_debut" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Heure fin</label>
+                    <input type="time" name="heure_fin" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+            </div>
+            
+            <button type="submit" style="width: 100%; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 500; background: var(--ink); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; transition: opacity .15s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+                Ajouter à l'agenda
+            </button>
+        </form>
+    </div>
+    
+    <div class="card" style="flex: 2; min-width: 0; padding: 24px;">
+        <div id="calendar"></div>
+    </div>
 </div>
+{% endblock %}
 
-{# ── KPIs ── #}
-<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:16px;">
-    <div class="card" style="padding:20px;">
-        <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Moyenne générale</div>
-        <div style="font-size:28px; font-weight:500; letter-spacing:-0.03em; color:#111;">
-            {% if moyenne %}{{ moyenne }}<span style="font-size:14px; color:#aaa;">/20</span>{% else %}<span style="font-size:14px; color:#aaa;">Aucune note</span>{% endif %}
-        </div>
-    </div>
-    <div class="card" style="padding:20px;">
-        <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Notes saisies</div>
-        <div style="font-size:28px; font-weight:500; letter-spacing:-0.03em; color:#111;">{{ notes|length }}</div>
-    </div>
-    <div class="card" style="padding:20px;">
-        <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">Absences</div>
-        <div style="font-size:28px; font-weight:500; letter-spacing:-0.03em; color:#111;">{{ absences|length }}</div>
-    </div>
-</div>
-
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-
-    {# ── Notes par matière ── #}
-    <div class="card">
-        <div class="card-head">
-            <span class="card-title">Notes par matière</span>
-        </div>
-        {% if notes %}
-        <table style="width:100%; border-collapse:collapse;">
-            <thead>
-                <tr style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid #efefef;">
-                    <th style="padding:8px 12px; text-align:left;">Matière</th>
-                    <th style="padding:8px 12px; text-align:center;">Notes</th>
-                    <th style="padding:8px 12px; text-align:right;">Moyenne</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for matiere, data in notes_par_matiere.items() %}
-                <tr style="border-bottom:1px solid #efefef;">
-                    <td style="padding:10px 12px; font-size:13px; font-weight:500; color:#111;">{{ matiere }}</td>
-                    <td style="padding:10px 12px; text-align:center;">
-                        <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                            {% for note in data.notes %}
-                            <span class="pill active" style="font-size:12px;">
-                                {{ note.valeur }}<sup style="font-size:9px; color:#aaa; margin-left:1px;">{{ note.coefficient }}</sup>
-                            </span>
-                            {% endfor %}
-                        </div>
-                    </td>
-                    <td style="padding:10px 12px; text-align:right; font-size:13px; font-weight:500; color:#111;">
-                        {{ data.moyenne }}/20
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p style="color:#aaa; font-size:13px;">Aucune note enregistrée.</p>
-        {% endif %}
-    </div>
-
-    {# ── Graphique radar ── #}
-    <div class="card">
-        <div class="card-head">
-            <span class="card-title">Profil par matière</span>
-        </div>
-        {% if notes %}
-        <canvas id="radarChart" height="220"></canvas>
-        {% else %}
-        <p style="color:#aaa; font-size:13px;">Aucune donnée à afficher.</p>
-        {% endif %}
-    </div>
-
-</div>
-
-{# ── Absences ── #}
-<div class="card">
-    <div class="card-head">
-        <span class="card-title">Absences</span>
-        <span class="card-meta">{{ absences|length }} absence{{ 's' if absences|length > 1 }}</span>
-    </div>
-
-{# ── Absences ── #}
-<div class="card">
-    <div class="card-head">
-        <span class="card-title">Absences</span>
-        <span class="card-meta">{{ absences|length }} absence{{ 's' if absences|length > 1 }}</span>
-    </div>
-    {% if absences %}
-    <table style="width:100%; border-collapse:collapse;">
-        <thead>
-            <tr style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid #efefef;">
-                <th style="padding:8px 12px; text-align:left;">Date</th>
-                <th style="padding:8px 12px; text-align:left;">Motif</th>
-                <th style="padding:8px 12px; text-align:right;">Justifiée</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for absence in absences %}
-            <tr style="border-bottom:1px solid #efefef;">
-                <td style="padding:10px 12px; font-size:13px; color:#111;">{{ absence.date_absence }}</td>
-                <td style="padding:10px 12px; font-size:13px; color:#555;">{{ absence.motif or '—' }}</td>
-                <td style="padding:10px 12px; text-align:right;">
-                    
-                    {# ── NOUVEAU FORMULAIRE D'ACTION ICI ── #}
-                    <form action="{{ url_for('prof_toggle_absence', class_id=classe.id, student_id=etudiant.id, absence_id=absence.id) }}" method="POST" style="display:inline; margin: 0;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        
-                        {% if absence.justifiee %}
-                            <button type="submit" class="pill active" style="border:none; cursor:pointer; background-color:#e8f5e9; color:#2e7d32;" title="Cliquer pour marquer comme non justifiée">
-                                Oui (Annuler)
-                            </button>
-                        {% else %}
-                            <button type="submit" class="pill" style="border:none; cursor:pointer; color:#999;" title="Cliquer pour marquer comme justifiée">
-                                Non (Justifier)
-                            </button>
-                        {% endif %}
-                    </form>
-                    {# ── FIN DU FORMULAIRE ── #}
-
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p style="color:#aaa; font-size:13px;">Aucune absence enregistrée.</p>
-    {% endif %}
-</div>
-
-</div>
-
-{% if notes %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/fr.global.min.js"></script>
 <script>
-Chart.defaults.font.family = "'Geist', 'Helvetica Neue', sans-serif";
-Chart.defaults.font.size   = 11;
-Chart.defaults.color       = '#aaa';
-
-const matieres = {{ notes_par_matiere.keys() | list | tojson }};
-const moyennes = {{ notes_par_matiere.values() | map(attribute='moyenne') | list | tojson }};
-
-new Chart(document.getElementById('radarChart'), {
-    type: 'radar',
-    data: {
-        labels: matieres,
-        datasets: [{
-            label: 'Moyenne',
-            data: moyennes,
-            borderColor: '#111',
-            borderWidth: 1.5,
-            backgroundColor: 'rgba(17,17,17,0.06)',
-            pointBackgroundColor: '#111',
-            pointRadius: 3,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: { display: false },
-            tooltip: { displayColors: false, callbacks: { label: ctx => ` ${ctx.parsed.r}/20` } }
-        },
-        scales: {
-            r: {
-                min: 0, max: 20,
-                ticks: { stepSize: 5, backdropColor: 'transparent' },
-                grid: { color: '#efefef' },
-                angleLines: { color: '#efefef' },
-                pointLabels: { font: { size: 11 }, color: '#111' }
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var coursEvents = {{ cours_json | tojson | safe }};
+        
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            locale: 'fr',
+            firstDay: 1, // La semaine commence le Lundi (1)
+            height: 'auto',
+            slotMinTime: '07:30:00',
+            slotMaxTime: '19:00:00',
+            slotDuration: '00:30:00',
+            slotLabelInterval: '01:00:00',
+            allDaySlot: false,
+            nowIndicator: true,
+            weekends: false, // Cache le Samedi (6) et Dimanche (0)
+            headerToolbar: false,
+            dayHeaderFormat: { weekday: 'long' },
+            events: coursEvents,
+            eventContent: function(arg) {
+                return {
+                    html: `<div style="font-size: 11px; padding: 4px; overflow: hidden;">
+                            <b style="font-size:12px;">${arg.event.title}</b><br>
+                            ${arg.timeText}
+                           </div>`
+                };
             }
-        }
-    }
-});
+        });
+        
+        calendar.render();
+    });
 </script>
-{% endif %}
-
 {% endblock %}

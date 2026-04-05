@@ -17,15 +17,15 @@
         <p style="margin: 0; font-size: 12px; color: var(--muted);">Intégrer un nouvel étudiant à cette classe.</p>
     </div>
     
-    <form action="{{ url_for('prof_add_student', class_id=classe.id) }}" method="POST" style="display: flex; gap: 10px; flex-grow: 1; max-width: 400px;">
+    <form action="{{ url_for('prof_add_student', class_id=classe.id) }}" method="POST" style="display: flex; gap: 12px; flex-grow: 1; max-width: 400px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <select name="student_id" style="flex-grow: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);" required>
+        <select name="student_id" style="flex-grow: 1; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-size: 13px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'" required>
             <option value="">Sélectionnez un élève...</option>
             {% for dispo in etudiants_dispo %}
                 <option value="{{ dispo.id }}">{{ dispo.email }}</option>
             {% endfor %}
         </select>
-        <button type="submit" class="btn btn-success" style="background: #1e8e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500;">Ajouter</button>
+        <button type="submit" style="background: var(--ink); color: var(--bg); border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px; font-family: inherit; transition: opacity .15s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">Ajouter</button>
     </form>
 </div>
 
@@ -33,9 +33,9 @@
     <table style="width: 100%; border-collapse: collapse; text-align: left;">
         <thead>
             <tr style="border-bottom: 1px solid var(--border); background: var(--soft);">
-                <th style="padding: 15px 24px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em;">Étudiant</th>
-                <th style="padding: 15px 24px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em;">Email</th>
-                <th style="padding: 15px 24px; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; text-align: right;">Actions rapides</th>
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500;">Étudiant</th>
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500;">Email</th>
+                <th style="padding: 12px 24px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; font-weight: 500; text-align: right;">Actions rapides</th>
             </tr>
         </thead>
         <tbody>
@@ -52,15 +52,15 @@
                 </td>
                 <td style="padding: 15px 24px; text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
 <a href="{{ url_for('prof_student_stats', class_id=classe.id, student_id=etudiant.id) }}"
-   class="pill btn-outline"
-   style="cursor:pointer; background:var(--bg); color:var(--ink); border:1px solid var(--border); text-decoration:none; padding:3px 9px;">
+   class="badge"
+   style="cursor:pointer; background:var(--bg); color:var(--ink); border:1px solid var(--border); text-decoration:none; padding:5px 12px;">
    Stats
-</a>                   
-<button type="button" class="pill btn-outline" onclick="openNoteModal('{{ etudiant.id }}', '{{ etudiant.email.split('@')[0] | capitalize }}')" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">Saisir Note</button>
-    <button type="button" class="pill btn-outline" onclick="openAbsenceModal('{{ etudiant.id }}', '{{ etudiant.email.split('@')[0] | capitalize }}')" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">Absence</button>                    
+</a>                    
+<button type="button" class="badge" onclick="openNoteModal('{{ etudiant.id }}', '{{ etudiant.email.split('@')[0] | capitalize }}')" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">Saisir Note</button>
+    <button type="button" class="badge" onclick="openAbsenceModal('{{ etudiant.id }}', '{{ etudiant.email.split('@')[0] | capitalize }}')" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">Absence</button>                    
                     <form action="{{ url_for('prof_remove_student', class_id=classe.id, student_id=etudiant.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Voulez-vous vraiment retirer cet élève de la classe ?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="pill" style="cursor: pointer; background: transparent; color: #dc3545; border-color: #dc3545;">Retirer</button>
+                        <button type="submit" class="badge" style="cursor: pointer; background: transparent; color: #dc3545; border-color: #dc3545;">Retirer</button>
                     </form>
                 </td>
             </tr>
@@ -83,30 +83,30 @@
         <form id="noteForm" method="POST" action="">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Matière</label>
-                <input type="text" name="matiere" required placeholder="Ex: Mathématiques" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Matière</label>
+                <input type="text" name="matiere" required placeholder="Ex: Mathématiques" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Nom de l'évaluation</label>
-                <input type="text" name="evaluation_nom" required placeholder="Ex: Contrôle Chapitre 4" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Nom de l'évaluation</label>
+                <input type="text" name="evaluation_nom" required placeholder="Ex: Contrôle Chapitre 4" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             
-            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <div style="display: flex; gap: 16px; margin-bottom: 24px;">
                 <div style="flex: 1;">
-                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Note</label>
-                    <input type="number" step="0.25" name="valeur" required placeholder="15" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+                    <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Note</label>
+                    <input type="number" step="0.25" name="valeur" required placeholder="15" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
                 </div>
                 <div style="flex: 1;">
-                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Coefficient</label>
-                    <input type="number" name="sur" value="20" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+                    <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Sur</label>
+                    <input type="number" name="sur" value="20" required style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
                 </div>
             </div>
             
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn" onclick="closeModals()" style="padding: 10px 15px; background: var(--soft); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Annuler</button>
-                <button type="submit" class="btn btn-success" style="padding: 10px 15px; background: #1e8e3e; color: white; border: none; border-radius: 6px; cursor: pointer;">Enregistrer</button>
+                <button type="button" onclick="closeModals()" style="padding: 10px 15px; font-family: inherit; font-size: 13px; font-weight: 500; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Annuler</button>
+                <button type="submit" style="padding: 10px 15px; font-family: inherit; font-size: 13px; font-weight: 500; background: var(--ink); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; transition: opacity .15s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">Enregistrer</button>
             </div>
         </form>
     </div>
@@ -116,24 +116,19 @@
         <form id="absenceForm" method="POST" action="">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Date</label>
-                <input type="date" name="date" required id="absenceDate" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Date</label>
+                <input type="date" name="date" required id="absenceDate" style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Durée (en heures)</label>
-                <input type="number" name="duree" min="1" max="8" value="2" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Motif (Optionnel)</label>
-                <input type="text" name="motif" placeholder="Ex: Maladie, Retard non justifié..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 8px;">Motif (Optionnel)</label>
+                <input type="text" name="motif" placeholder="Ex: Maladie, Retard non justifié..." style="width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ink)'" onblur="this.style.borderColor='var(--border)'">
             </div>
             
             <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn" onclick="closeModals()" style="padding: 10px 15px; background: var(--soft); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Annuler</button>
-                <button type="submit" class="btn btn-danger" style="padding: 10px 15px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">Déclarer</button>
+                <button type="button" onclick="closeModals()" style="padding: 10px 15px; font-family: inherit; font-size: 13px; font-weight: 500; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Annuler</button>
+                <button type="submit" style="padding: 10px 15px; font-family: inherit; font-size: 13px; font-weight: 500; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; transition: opacity .15s;" onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">Déclarer</button>
             </div>
         </form>
     </div>

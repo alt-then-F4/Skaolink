@@ -3,29 +3,147 @@
 {% block page_title %}Tableau de Bord Administrateur{% endblock %}
 
 {% block content %}
-<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px;">
-    <div class="card" style="padding:20px; text-align:center;">
-        <div style="font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Étudiants</div>
-        <div style="font-size:32px; font-weight:bold; color:var(--ink);">{{ stats.total_etudiants }}</div>
+<style>
+    .admin-dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .admin-stat-card {
+        padding: 24px 28px;
+        text-align: left;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .admin-stat-card:hover {
+        transform: translateY(-2px);
+        border-color: #d9d9d9;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
+    }
+
+    .admin-stat-label {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .admin-stat-value {
+        font-size: 36px;
+        line-height: 1;
+        font-weight: 600;
+        letter-spacing: -0.04em;
+        color: var(--ink);
+    }
+
+    .admin-dashboard-links {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .admin-link-card {
+        padding: 28px;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        color: inherit;
+        transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+
+    .admin-link-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--ink);
+        background: var(--soft);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.05);
+    }
+
+    .admin-link-icon {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--soft);
+        color: var(--ink);
+        margin-bottom: 14px;
+    }
+
+    .admin-link-title {
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        margin-bottom: 8px;
+        color: var(--ink);
+    }
+
+    .admin-link-text {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+        font-weight: 300;
+        margin: 0;
+    }
+
+    @media (max-width: 900px) {
+        .admin-dashboard-stats,
+        .admin-dashboard-links {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="admin-dashboard-stats">
+    <div class="card admin-stat-card">
+        <div class="admin-stat-label">Étudiants</div>
+        <div class="admin-stat-value">{{ stats.total_etudiants }}</div>
     </div>
-    <div class="card" style="padding:20px; text-align:center;">
-        <div style="font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Professeurs</div>
-        <div style="font-size:32px; font-weight:bold; color:var(--ink);">{{ stats.total_professeurs }}</div>
+
+    <div class="card admin-stat-card">
+        <div class="admin-stat-label">Professeurs</div>
+        <div class="admin-stat-value">{{ stats.total_professeurs }}</div>
     </div>
-    <div class="card" style="padding:20px; text-align:center;">
-        <div style="font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Classes</div>
-        <div style="font-size:32px; font-weight:bold; color:var(--ink);">{{ stats.total_classes }}</div>
+
+    <div class="card admin-stat-card">
+        <div class="admin-stat-label">Classes</div>
+        <div class="admin-stat-value">{{ stats.total_classes }}</div>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-    <a href="{{ url_for('admin_classes') }}" class="card" style="padding:30px; text-decoration:none; text-align:center; transition:0.2s;">
-        <h3 style="color:#1e8e3e;">📁 Gérer les Classes</h3>
-        <p style="color:var(--muted); font-size:13px;">Créer et organiser les sections d'enseignement.</p>
+<div class="admin-dashboard-links">
+    <a href="{{ url_for('admin_classes') }}" class="card admin-link-card">
+        <div class="admin-link-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+        </div>
+        <div class="admin-link-title">Gérer les Classes</div>
+        <p class="admin-link-text">Créer et organiser les sections d'enseignement.</p>
     </a>
-    <a href="{{ url_for('admin_users') }}" class="card" style="padding:30px; text-decoration:none; text-align:center; transition:0.2s;">
-        <h3 style="color:#1a73e8;">👥 Gérer les Comptes</h3>
-        <p style="color:var(--muted); font-size:13px;">Créer des accès pour profs, élèves et admins.</p>
+
+    <a href="{{ url_for('admin_users') }}" class="card admin-link-card">
+        <div class="admin-link-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        </div>
+        <div class="admin-link-title">Gérer les Comptes</div>
+        <p class="admin-link-text">Créer des accès pour profs, élèves et admins.</p>
     </a>
 </div>
 {% endblock %}

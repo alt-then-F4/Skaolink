@@ -1,73 +1,259 @@
 {% extends "base.html" %}
-
-{% block title %}Gérer les Comptes{% endblock %}
-{% block page_title %}Gestion des Comptes{% endblock %}
-{% block page_subtitle %}Créez, modifiez ou supprimez les utilisateurs du système.{% endblock %}
+{% block title %}Gestion des Comptes{% endblock %}
+{% block page_title %}Gérer les Comptes{% endblock %}
 
 {% block content %}
-<div class="card" style="margin-bottom:20px;">
-    <h3 style="margin-top:0;">Créer un utilisateur</h3>
-    <form action="{{ url_for('admin_users') }}" method="POST" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+<style>
+    .admin-form-card {
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        margin-bottom: 28px;
+        transition: box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .admin-form-card:hover {
+        border-color: #d9d9d9;
+    }
+
+    .admin-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 18px;
+    }
+
+    .admin-input {
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        font-size: 14px;
+        color: var(--ink);
+    }
+
+    .admin-submit-btn {
+        grid-column: span 2;
+        padding: 14px;
+        border-radius: 10px;
+        background: #000;
+        color: var(--bg);
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.06);
+        cursor: pointer;
+        letter-spacing: -0.01em;
+        box-shadow: none;
+        transition: background .12s ease, transform .12s ease, border-color .12s ease;
+    }
+
+    .admin-submit-btn:hover {
+        background: #0d0d0d;
+        transform: translateY(-2px);
+        border-color: rgba(255,255,255,0.08);
+    }
+
+    .admin-submit-btn:active {
+        transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+        .admin-form-grid {
+            grid-template-columns: 1fr;
+        }
+        .admin-submit-btn {
+            grid-column: span 1;
+        }
+    }
+
+    html.dark-mode .admin-submit-btn {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #e6e6e6 !important;
+        box-shadow: none !important;
+    }
+
+    html.dark-mode .admin-submit-btn:hover {
+        background: #f5f5f5 !important;
+        transform: translateY(-2px);
+        border-color: #e0e0e0 !important;
+    }
+
+    /* Custom Select */
+    .custom-select { position: relative; user-select: none; }
+    .custom-select-trigger {
+        display: flex; align-items: center; gap: 8px; padding: 12px;
+        border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+        cursor: pointer; font-size: 14px; color: var(--muted); transition: border-color .15s;
+    }
+    .custom-select.open .custom-select-trigger, .custom-select-trigger:hover {
+        border-color: var(--ink); color: var(--ink);
+    }
+    .custom-select-icon { display: flex; color: var(--muted); }
+    .custom-select-text { flex: 1; }
+    .custom-select-arrow { margin-left: auto; transition: transform .2s; color: var(--muted); }
+    .custom-select.open .custom-select-arrow { transform: rotate(180deg); }
+    .custom-select-dropdown {
+        display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+        background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+        overflow: hidden; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    .custom-select.open .custom-select-dropdown { display: block; }
+    .custom-select-option {
+        display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+        font-size: 13px; color: var(--muted); cursor: pointer; transition: background .12s, color .12s;
+    }
+    .custom-select-option:hover { background: var(--soft); color: var(--ink); }
+    .custom-select-option.selected { color: var(--ink); font-weight: 500; }
+    .custom-select-option svg { flex-shrink: 0; }
+
+    /* Tables */
+    .users-table-container {
+        overflow-x: auto; background: var(--bg); border: 1px solid var(--border);
+        border-radius: 10px; margin-top: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+    .users-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    .users-table th {
+        padding: 16px 20px; color: var(--muted); font-weight: 500; font-size: 12px;
+        text-transform: uppercase; letter-spacing: 0.05em; background: var(--soft); border-bottom: 1px solid var(--border);
+    }
+    .users-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); color: var(--ink); vertical-align: middle; }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tbody tr:hover { background-color: var(--soft); }
+
+    .user-cell { display: flex; align-items: center; gap: 12px; }
+    .user-avatar {
+        width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--bg);
+        display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 12px; flex-shrink: 0;
+    }
+    html.dark-mode .user-avatar { background: #ffffff !important; color: #000000 !important; }
+
+    .role-badge {
+        display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500;
+        padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+    }
+    .role-badge.admin { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+    html.dark-mode .role-badge.admin * { background: #ffffff !important; border-color: #ffffff !important; color: #000000 !important; stroke: #000000 !important; }
+    .role-badge.prof, .role-badge.etudiant { color: var(--ink); }
+
+    /* Checkboxes */
+    .checkbox-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+        padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    }
+    .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); cursor: pointer; }
+    .checkbox-label input { accent-color: var(--ink); }
+</style>
+
+<div class="admin-form-card">
+    <h3 style="margin-top:0; font-size:18px; font-weight:600; color:var(--ink);">Créer un utilisateur</h3>
+    <form action="{{ url_for('admin_users') }}" method="POST" class="admin-form-grid">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="email" name="email" placeholder="Email" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
-        <input type="password" name="password" placeholder="Mot de passe" required style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
-        
-        <select name="role" id="roleSelect" required onchange="toggleClasses('create')" style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
-            <option value="[ETUDIANT]">🎓 Étudiant (1 classe)</option>
-            <option value="[PROF]">👨‍🏫 Professeur (Multi-classes)</option>
-            <option value="[ADMIN]">🔑 Administrateur</option>
-        </select>
-        
-        <select name="classe_id" id="classeEtudiantCreate" style="padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink);">
-            <option value="">Sélectionner une classe</option>
-            {% for c in classes %}
-                <option value="{{ c.id }}">{{ c.nom }}</option>
-            {% endfor %}
-        </select>
+        <input type="email" name="email" placeholder="Email" required class="admin-input">
+        <input type="password" name="password" placeholder="Mot de passe" required class="admin-input">
+        <input type="hidden" name="role" id="roleValue" required>
 
-        <select name="classes_prof" id="classesProfCreate" multiple style="display:none; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink); height:80px;">
-            {% for c in classes %}
-                <option value="{{ c.id }}">{{ c.nom }}</option>
-            {% endfor %}
-        </select>
+        <div class="custom-select" id="roleSelect">
+          <div class="custom-select-trigger">
+            <span class="custom-select-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              </svg>
+            </span>
+            <span class="custom-select-text">Choisir un rôle</span>
+            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+          <div class="custom-select-dropdown">
+            <div class="custom-select-option" data-value="[ETUDIANT]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> Étudiant
+            </div>
+            <div class="custom-select-option" data-value="[PROF]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Professeur
+            </div>
+            <div class="custom-select-option" data-value="[ADMIN]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Administrateur
+            </div>
+          </div>
+        </div>
 
-        <button type="submit" class="btn btn-success" style="grid-column: span 2; background:#1a73e8; color:white; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold;">Enregistrer le compte</button>
+        <div id="dynamic-class-assignment" style="display: none;">
+            <div id="etudiant-assignment" style="display: none;">
+                <input type="hidden" name="classe_id" id="classeValue" value="">
+                <div class="custom-select" id="classeSelect">
+                  <div class="custom-select-trigger">
+                    <span class="custom-select-text">Sélectionner sa classe</span>
+                  </div>
+                  <div class="custom-select-dropdown">
+                    {% for c in classes %}
+                    <div class="custom-select-option" data-value="{{ c.id }}">{{ c.nom }}</div>
+                    {% endfor %}
+                  </div>
+                </div>
+            </div>
+            <div id="prof-assignment" style="display: none;">
+                <div class="checkbox-grid">
+                    {% for c in classes %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="classes_prof" value="{{ c.id }}"> {{ c.nom }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
 
-
+        <button type="submit" class="admin-submit-btn">Enregistrer le compte</button>
     </form>
 </div>
 
-<div class="card">
-    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+<h3 style="margin-top:40px; font-size:18px; font-weight:600; color:var(--ink);">Comptes existants</h3>
+<div class="users-table-container">
+    <table class="users-table">
         <thead>
-            <tr style="border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; text-transform: uppercase;">
-                <th style="padding: 15px;">Email</th>
-                <th style="padding: 15px;">Rôle</th>
-                <th style="padding: 15px;">Classe</th>
-                <th style="padding: 15px; text-align: right;">Actions</th>
+            <tr>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>Classe(s)</th>
+                <th style="text-align: right;">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for u in utilisateurs %}
-            <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 15px; font-weight: 500;">{{ u.email }}</td>
-                <td style="padding: 15px;">
-                    {% if u.role == '[ADMIN]' %}<span class="pill" style="background:#fce8e6; color:#1a73e8; border-color:#1a73e8;">Admin</span>
-                    {% elif u.role == '[PROF]' %}<span class="pill" style="background:#e8f5e9; color:#1e8e3e; border-color:#1e8e3e;">Prof</span>
-                    {% else %}<span class="pill" style="background:var(--soft); color:var(--ink);">Étudiant</span>{% endif %}
+            <tr>
+                <td>
+                    <div class="user-cell">
+                        <div class="user-avatar">{{ u.email[0]|upper }}</div>
+                        <span style="font-weight: 500;">{{ u.email }}</span>
+                    </div>
                 </td>
-                <td style="padding: 15px; font-size: 13px; color: var(--muted);">{{ u.classe.nom if u.classe else '-' }}</td>
-                <td style="padding: 15px; text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
-                    
-                    <button type="button" class="pill btn-outline" onclick="openEditModal({{ u.id }}, '{{ u.email }}', '{{ u.role }}', '{{ u.classe_id or '' }}')" style="cursor: pointer; background: var(--bg); color: var(--ink); border: 1px solid var(--border);">Modifier</button>
-                    
-                    {% if u.id != current_user.id %}
-                    <form action="{{ url_for('admin_delete_user', id=u.id) }}" method="POST" onsubmit="return confirm('Voulez-vous vraiment supprimer cet utilisateur ?');" style="margin:0;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="pill" style="cursor: pointer; background: transparent; color: #dc3545; border-color: #dc3545;">Supprimer</button>
-                    </form>
+                <td>
+                    <span class="role-badge {% if u.role == '[ADMIN]' %}admin{% elif u.role == '[PROF]' %}prof{% else %}etudiant{% endif %}">
+                        {{ "Admin" if u.role == '[ADMIN]' else "Professeur" if u.role == '[PROF]' else "Étudiant" }}
+                    </span>
+                </td>
+                <td>
+                    {% if u.role == '[ETUDIANT]' and u.classe %}
+                        <span style="color:var(--ink); font-weight:500; background:var(--soft); padding:4px 8px; border-radius:6px; border:1px solid var(--border); font-size:12px;">{{ u.classe.nom }}</span>
+                    {% elif u.role == '[PROF]' and u.classes_enseignees %}
+                        {% for c in u.classes_enseignees %}
+                            <span style="color:var(--ink); font-weight:500; background:var(--soft); padding:4px 8px; border-radius:6px; border:1px solid var(--border); font-size:12px; margin-right:4px;">{{ c.nom }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color:var(--muted); font-size:12px;">N/A</span>
                     {% endif %}
-
+                </td>
+                <td style="text-align: right;">
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                        <button type="button" onclick='openEditModal({{ u.id }}, "{{ u.email }}", "{{ u.role }}", "{{ u.classe_id or '' }}", {{ u.classes_enseignees|map(attribute="id")|list|tojson|safe }})' style="background:transparent; border:1px solid var(--ink); color:var(--ink); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:500;">Éditer</button>
+                        
+                        {% if current_user.id != u.id %}
+                        <form action="{{ url_for('admin_delete_user', id=u.id) }}" method="POST" onsubmit="return confirm('Voulez-vous vraiment supprimer cet utilisateur ?');" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background:transparent; border:1px solid #dc3545; color:#dc3545; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:500;">Supprimer</button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -76,89 +262,178 @@
 </div>
 
 <div id="editModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
-    <div class="card" style="background: var(--bg); width: 100%; max-width: 400px; padding: 24px; position: relative;">
-        <h3 style="margin-top: 0;">Modifier l'utilisateur</h3>
-        <form id="editForm" method="POST" action="">
+    <div class="admin-form-card" style="width: 100%; max-width: 500px; position: relative; z-index: 1001; margin: 20px;">
+        <h3 style="margin-top: 0; font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 20px;">Modifier l'utilisateur</h3>
+        
+        <form id="editForm" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Email</label>
-                <input type="email" name="email" id="editEmail" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+
+            <div>
+                <label style="font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; display:block;">Email</label>
+                <input type="email" name="email" id="editEmail" required class="admin-input" style="width:100%;">
             </div>
 
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
-                <input type="password" name="password" placeholder="***" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
+            <div>
+                <label style="font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; display:block;">Nouveau mot de passe</label>
+                <input type="password" name="password" placeholder="Laisser vide pour conserver l'actuel" class="admin-input" style="width:100%;">
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <div>
-                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Rôle</label>
-                    <select name="role" id="editRole" required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
-                        <option value="[ETUDIANT]">Étudiant</option>
-                        <option value="[PROF]">Professeur</option>
-                        <option value="[ADMIN]">Admin</option>
-                    </select>
+            <div>
+                <label style="font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; display:block;">Rôle</label>
+                <select name="role" id="editRoleSelect" required class="admin-input" style="width:100%; cursor:pointer;" onchange="updateEditRoleDisplay()">
+                    <option value="[ETUDIANT]">Étudiant</option>
+                    <option value="[PROF]">Professeur</option>
+                    <option value="[ADMIN]">Administrateur</option>
+                </select>
+            </div>
+
+            <div id="edit-etudiant-assignment" style="display: none;">
+                <label style="font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; display:block;">Classe assignée</label>
+                <select name="classe_id" id="editClasseSelect" class="admin-input" style="width:100%; cursor:pointer;">
+                    <option value="">Aucune classe</option>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}">{{ c.nom }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="edit-prof-assignment" style="display: none;">
+                <label style="font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; display:block;">Classes enseignées</label>
+                <div class="checkbox-grid">
+                    {% for c in classes %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="classes_prof" value="{{ c.id }}" class="edit-prof-checkbox">
+                        {{ c.nom }}
+                    </label>
+                    {% endfor %}
                 </div>
-                <div>
-                    <label style="display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;">Classe</label>
-                    <select name="classe_id" id="editClasse" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--soft); color: var(--ink);">
-                        <option value="">Aucune</option>
-                        {% for c in classes %}
-                            <option value="{{ c.id }}">{{ c.nom }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn" onclick="closeEditModal()" style="padding: 10px 15px; background: var(--soft); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Annuler</button>
-                <button type="submit" class="btn btn-success" style="padding: 10px 15px; background: #1a73e8; color: white; border: none; border-radius: 6px; cursor: pointer;">Mettre à jour</button>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <button type="button" onclick="closeEditModal()" style="padding: 10px 15px; background: transparent; color: var(--ink); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size:13px; font-weight:500;">Annuler</button>
+                <button type="submit" class="admin-submit-btn" style="width:auto; grid-column: auto; padding:10px 20px;">Enregistrer les modifications</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    const overlay = document.getElementById('editModalOverlay');
-    
-    function openEditModal(id, email, role, classeId) {
-        document.getElementById('editForm').action = '/admin/users/edit/' + id;
-        document.getElementById('editEmail').value = email;
-        document.getElementById('editRole').value = role;
-        document.getElementById('editClasse').value = classeId;
-        overlay.style.display = 'flex';
-    }
+// 1. Logique du formulaire principal de CRÉATION
+(function() {
+  const sel = document.getElementById('roleSelect');
+  const hidden = document.getElementById('roleValue');
+  const text = sel.querySelector('.custom-select-text');
+  
+  const dynamicArea = document.getElementById('dynamic-class-assignment');
+  const etudiantArea = document.getElementById('etudiant-assignment');
+  const profArea = document.getElementById('prof-assignment');
 
-    function closeEditModal() {
-        overlay.style.display = 'none';
-    }
+  sel.querySelector('.custom-select-trigger').addEventListener('click', () => {
+    sel.classList.toggle('open');
+  });
 
-    overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) {
-            closeEditModal();
-        }
+  sel.querySelectorAll('.custom-select-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const selectedRole = opt.dataset.value;
+      hidden.value = selectedRole;
+      text.textContent = opt.textContent.trim();
+      sel.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      sel.classList.remove('open');
+      text.style.color = 'var(--ink)';
+
+      if(selectedRole === '[ETUDIANT]') {
+          dynamicArea.style.display = 'block';
+          etudiantArea.style.display = 'block';
+          profArea.style.display = 'none';
+      } else if (selectedRole === '[PROF]') {
+          dynamicArea.style.display = 'block';
+          profArea.style.display = 'block';
+          etudiantArea.style.display = 'none';
+      } else {
+          dynamicArea.style.display = 'none';
+      }
     });
-</script>
-<script>
-    function toggleClasses(type) {
-        const role = type === 'create' ? document.getElementById('roleSelect').value : document.getElementById('editRole').value;
-        const selectEtudiant = type === 'create' ? document.getElementById('classeEtudiantCreate') : document.getElementById('editClasse');
-        const selectProf = type === 'create' ? document.getElementById('classesProfCreate') : document.getElementById('editClassesProf');
-        
-        if (role === '[ETUDIANT]') {
-            selectEtudiant.style.display = 'block';
-            selectProf.style.display = 'none';
-        } else if (role === '[PROF]') {
-            selectEtudiant.style.display = 'none';
-            selectProf.style.display = 'block';
-        } else { // ADMIN
-            selectEtudiant.style.display = 'none';
-            selectProf.style.display = 'none';
-        }
-    }
-    // Lancer au démarrage pour le premier formulaire
-    toggleClasses('create');
-</script>
+  });
 
+  document.addEventListener('click', e => {
+    if (!sel.contains(e.target)) sel.classList.remove('open');
+  });
+})();
+
+(function() {
+  const sel = document.getElementById('classeSelect');
+  const hidden = document.getElementById('classeValue');
+  const text = sel.querySelector('.custom-select-text');
+
+  sel.querySelector('.custom-select-trigger').addEventListener('click', () => {
+    sel.classList.toggle('open');
+  });
+
+  sel.querySelectorAll('.custom-select-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      hidden.value = opt.dataset.value;
+      text.textContent = opt.textContent.trim();
+      sel.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      sel.classList.remove('open');
+      text.style.color = opt.dataset.value === '' ? '' : 'var(--ink)';
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!sel.contains(e.target)) sel.classList.remove('open');
+  });
+})();
+
+// 2. Logique de la MODALE D'ÉDITION
+function openEditModal(id, email, role, classe_id, classes_prof) {
+    // Injecter l'URL d'action pour Flask
+    document.getElementById('editForm').action = '/admin/users/edit/' + id;
+    
+    // Remplir les champs
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editRoleSelect').value = role;
+    
+    // Afficher les bons tiroirs selon le rôle
+    updateEditRoleDisplay();
+    
+    // Assigner la classe (Étudiant)
+    document.getElementById('editClasseSelect').value = classe_id;
+    
+    // Cocher les cases (Professeur)
+    document.querySelectorAll('.edit-prof-checkbox').forEach(cb => {
+        cb.checked = classes_prof.includes(parseInt(cb.value));
+    });
+    
+    // Afficher la modale
+    document.getElementById('editModalOverlay').style.display = 'flex';
+}
+
+function updateEditRoleDisplay() {
+    const role = document.getElementById('editRoleSelect').value;
+    const etuArea = document.getElementById('edit-etudiant-assignment');
+    const profArea = document.getElementById('edit-prof-assignment');
+    
+    if (role === '[ETUDIANT]') {
+        etuArea.style.display = 'block';
+        profArea.style.display = 'none';
+    } else if (role === '[PROF]') {
+        profArea.style.display = 'block';
+        etuArea.style.display = 'none';
+    } else {
+        etuArea.style.display = 'none';
+        profArea.style.display = 'none';
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('editModalOverlay').style.display = 'none';
+}
+
+// Fermer la modale si on clique à l'extérieur
+document.getElementById('editModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+</script>
 {% endblock %}
