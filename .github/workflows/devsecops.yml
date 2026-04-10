@@ -83,12 +83,6 @@ jobs:
             cd /opt/Skaolink
             git pull origin main
             
-            # Injection sécurisée des variables d'environnement depuis GitHub Secrets
-            export FLASK_SECRET_KEY=${{ secrets.SECRET_KEY }}
-            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            export REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            export JITSI_SECRET=${{ secrets.JITSI_SECRET }}
-            export MYSQL_USER=${{ secrets.MYSQL_USER }}
             
             # Redémarrage de l'infrastructure de production
             docker-compose down
