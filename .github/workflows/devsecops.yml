@@ -1,4 +1,4 @@
-name: 🛡️ Pipeline DevSecOps - Skaolink
+name:  Pipeline DevSecOps - Skaolink
 
 on:
   push:
@@ -12,26 +12,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Récupération du code
+      - name:  Récupération du code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 🐍 Configuration de Python 3.12
+      - name:  Configuration de Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: 📦 Installation des dépendances de test
+      - name:  Installation des dépendances de test
         run: |
           python -m pip install --upgrade pip
           pip install bandit
 
-      - name: 🕵️‍♂️ Scan des Secrets (Gitleaks)
+      - name:  Scan des Secrets (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🐞 SAST - Analyse statique avec Bandit
+      - name:  SAST - Analyse statique avec Bandit
         run: |
           bandit -r backend/ -ll -ii
